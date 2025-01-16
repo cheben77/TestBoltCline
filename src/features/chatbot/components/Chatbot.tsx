@@ -1,61 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import type { FormEvent, ChangeEvent, ReactNode } from 'react';
-import Canvas from './Canvas';
-import FileUploadProgress from './FileUploadProgress';
-import { notionService } from '@/services/notion';
-
-// Types
-interface ChatToolCategory {
-  id: string;
-  name: string;
-  enabled: boolean;
-  tools: ChatTool[];
-}
-
-interface ChatTool {
-  id: string;
-  name: string;
-  icon: ReactNode;
-  description: string;
-  action: () => void;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  stock: number;
-  description: string;
-  ecological_impact: string;
-  benefits: string;
-  usage_instructions: string;
-  ingredients: string[];
-  certifications: string[];
-}
-
-interface Service {
-  id: string;
-  name: string;
-  type: string;
-  duration: number;
-  capacity: number;
-  location: string;
-  description: string;
-  benefits: string;
-  price: number;
-  instructor: string;
-  schedule: string;
-  prerequisites: string[];
-}
-
-interface NotionContext {
-  products: Product[];
-  services: Service[];
-  query: string;
-}
+import React, { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
+import Canvas from '@/components/Canvas';
 
 interface Message {
   type: 'user' | 'bot' | 'file' | 'image';
@@ -64,13 +11,21 @@ interface Message {
   path?: string;
 }
 
-interface CanvasProps {
-  onClose: () => void;
-  initialContent: string;
+interface ChatTool {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+  description: string;
+  action: () => void;
 }
 
+interface ChatToolCategory {
+  id: string;
+  name: string;
+  enabled: boolean;
+  tools: ChatTool[];
+}
 
-// Components
 const ChatToolbox: React.FC<{
   onToolSelect: (tool: ChatTool) => void;
   activeMode: string;
@@ -80,11 +35,11 @@ const ChatToolbox: React.FC<{
 }> = ({ onToolSelect, activeMode, setMode, setInput, categories }) => {
   return (
     <div className="flex flex-col gap-4">
-      {categories.map((category: ChatToolCategory) => (
+      {categories.map((category) => (
         <div key={category.id} className="bg-green-700 p-2 rounded-lg">
           <h4 className="text-sm font-medium mb-2 px-2">{category.name}</h4>
           <div className="flex flex-wrap gap-2">
-            {category.tools.map((tool: ChatTool) => (
+            {category.tools.map((tool) => (
               <button
                 key={tool.id}
                 onClick={() => onToolSelect(tool)}
@@ -105,7 +60,23 @@ const ChatToolbox: React.FC<{
 };
 
 export default function Chatbot(): React.ReactElement {
-  // Data
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      type: 'bot',
+      content: 'Bonjour ! Je suis l\'assistant StoaViva. Comment puis-je vous aider ?',
+    },
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState('codestral:latest');
+  const [showCanvas, setShowCanvas] = useState(false);
+  const [canvasContent, setCanvasContent] = useState('');
+  const [mode, setMode] = useState<'simple' | 'notion' | 'file'>('notion');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+
   const categories: ChatToolCategory[] = [
     {
       id: 'native',
@@ -140,42 +111,6 @@ export default function Chatbot(): React.ReactElement {
       ]
     }
   ];
-  const [isOpen, setIsOpen] = useState(false);
-  const [notionStatus, setNotionStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      type: 'bot',
-      content: 'Bonjour ! Je suis l\'assistant StoaViva. Comment puis-je vous aider ?',
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState('codestral:latest');
-  const [showCanvas, setShowCanvas] = useState(false);
-  const [canvasContent, setCanvasContent] = useState('');
-  const [uploadProgress, setUploadProgress] = useState<{ filename: string; progress: number } | null>(null);
-  const [mode, setMode] = useState<'simple' | 'notion' | 'file'>('notion');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const response = await fetch('/api/notion/status');
-        const data = await response.json();
-        setNotionStatus(data.status);
-      } catch (error) {
-        console.error('Erreur lors de la vérification du statut Notion:', error);
-        setNotionStatus('disconnected');
-      }
-    };
-
-    const statusInterval = setInterval(checkStatus, 30000);
-    checkStatus();
-
-    return () => clearInterval(statusInterval);
-  }, []);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -184,7 +119,6 @@ export default function Chatbot(): React.ReactElement {
         const data = await response.json();
         if (response.ok) {
           setModels(data.models || []);
-          // Si codestral:latest est disponible, l'utiliser par défaut
           if (data.models?.includes('codestral:latest')) {
             setSelectedModel('codestral:latest');
           }

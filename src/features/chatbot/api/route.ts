@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ollamaService } from '@/services/ollama';
+import { ollamaService } from '@/features/chatbot';
 import { notionService } from '@/services/notion';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
 
 export async function POST(request: NextRequest) {
   console.log('Début de la requête chat');
