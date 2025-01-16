@@ -17,6 +17,7 @@
   "dependencies": {
     "@babel/runtime": "^7.26.0",
     "@notionhq/client": "^2.2.14",
+    "@supabase/supabase-js": "^2.47.15",
     "dotenv": "^16.3.1",
     "next": "14.0.4",
     "react": "^18",

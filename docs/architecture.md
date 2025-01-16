@@ -1,246 +1,197 @@
-# Architecture Technique de StoaViva
+# Architecture StoaViva
 
-## Vue d'ensemble
-StoaViva est une application web combinant une boutique en ligne de produits écologiques et une plateforme de services à la personne. Cette documentation détaille l'architecture technique nécessaire pour implémenter les fonctionnalités requises.
+## Vue d'Ensemble
 
-## Diagramme d'Architecture
+StoaViva utilise une architecture moderne combinant trois services complémentaires :
+
+1. **Supabase** : Base de données principale et temps réel
+2. **Notion** : CMS et gestion de contenu
+3. **Ollama** : Intelligence artificielle conversationnelle
+
 ```mermaid
 graph TD
-    A[Client] --> B[Frontend Next.js]
-    B --> C[API Routes]
-    C --> D[(Base de Données)]
-    C --> E[Services Externes]
-    E --> F[Stripe]
-    E --> G[SendGrid]
-    E --> H[Google Analytics]
-    E --> I[Notion]
-    E --> J[Ollama]
+    A[Client Next.js] --> B[API Routes]
+    B --> C[Supabase]
+    B --> D[Notion API]
+    B --> E[Ollama API]
+    C --> F[Données Dynamiques]
+    D --> G[Contenu & Documentation]
+    E --> H[Chatbot & Analyse]
 ```
 
-## Structure de l'Application
+## Répartition des Responsabilités
 
-### 1. Frontend (Next.js + Tailwind CSS)
-
-#### Pages Principales
-- **Page d'Accueil** (`/src/app/page.tsx`)
-  - Hero section avec présentation du concept
-  - Navigation rapide vers Produits/Services
-  - Sections featured pour produits et services populaires
-
-- **Catalogue Produits** (`/src/app/produits/page.tsx`)
-  - Filtres dynamiques (catégories, prix)
-  - Grille de produits responsive
-  - Système de pagination/infinite scroll
-
-- **Services** (`/src/app/services/page.tsx`)
-  - Catalogue des services disponibles
-  - Système de réservation
-  - Calendrier interactif
-
-#### Composants Réutilisables
-- **ProductCard** (`/src/components/ProductCard.tsx`)
-  - Affichage des informations produit
-  - Actions rapides (ajout panier)
-  - Optimisation images avec Next/Image
-
-- **ServiceCard** (`/src/components/ServiceCard.tsx`)
-  - Présentation des services
-  - Bouton de réservation rapide
-  - Indicateur de disponibilité
-
-- **Layout** (`/src/app/layout.tsx`)
-  - Navigation principale
-  - Panier/Compte utilisateur
-  - Footer avec informations importantes
-
-### 2. Backend (API Routes Next.js)
-
-#### API Endpoints
+### 1. Supabase (Données Dynamiques)
 
 ```typescript
-// Produits
-/api/products
-  GET    - Liste des produits avec filtres
-  POST   - Ajout d'un nouveau produit (admin)
+// lib/supabase.ts
+interface StockMovement {
+  product_id: string;
+  quantity: number;
+  type: 'in' | 'out';
+  timestamp: Date;
+}
+
+interface EventRegistration {
+  event_id: string;
+  user_id: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+}
+
+// Temps réel pour le stock
+const subscribeToStock = (productId: string) => {
+  return supabase
+    .from('stock_movements')
+    .on('INSERT', payload => {
+      // Mise à jour UI
+    })
+    .subscribe();
+};
+
+// Authentification utilisateurs
+const signIn = async (email: string, password: string) => {
+  return supabase.auth.signIn({ email, password });
+};
+```
+
+### 2. Notion (Gestion de Contenu)
+
+```typescript
+// lib/notion.ts
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  ecoImpact: {
+    score: number;
+    details: string[];
+  };
+}
+
+interface Service {
+  id: string;
+  title: string;
+  description: string;
+  duration: number;
+  benefits: string[];
+}
+
+// Synchronisation Notion -> Supabase
+const syncProducts = async () => {
+  const products = await notion.databases.query({
+    database_id: process.env.NOTION_PRODUCTS_DB_ID
+  });
   
-/api/products/[id]
-  GET    - Détails d'un produit
-  PUT    - Mise à jour produit
-  DELETE - Suppression produit
-
-// Services
-/api/services
-  GET    - Liste des services disponibles
-  POST   - Création nouveau service
-
-/api/services/[id]/availability
-  GET    - Créneaux disponibles
-  POST   - Réserver un créneau
-
-// Utilisateurs
-/api/users
-  POST   - Création compte
-  GET    - Infos utilisateur
-
-/api/users/orders
-  GET    - Historique commandes
-  POST   - Nouvelle commande
+  // Mise à jour cache Supabase
+  await supabase.from('products_cache').upsert(
+    products.map(formatNotionProduct)
+  );
+};
 ```
 
-### 3. Base de Données (Schema Prisma)
+### 3. Ollama (IA Conversationnelle)
 
-```prisma
-// Produits
-model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  price       Float
-  category    Category @relation(fields: [categoryId], references: [id])
-  categoryId  String
-  stock       Int
-  images      String[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// Services
-model Service {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  duration    Int      // en minutes
-  price       Float
-  capacity    Int      // nombre max de participants
-  category    String
-  bookings    Booking[]
-}
-
-// Réservations
-model Booking {
-  id        String   @id @default(cuid())
-  service   Service  @relation(fields: [serviceId], references: [id])
-  serviceId String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  date      DateTime
-  status    String   // confirmed, cancelled, completed
-}
-
-// Utilisateurs
-model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  orders    Order[]
-  bookings  Booking[]
-  createdAt DateTime  @default(now())
-}
-```
-
-### 4. Intégrations Externes
-
-#### Paiement
-- Stripe pour le traitement des paiements
-- PayPal comme option alternative
-
-#### Authentification
-- NextAuth.js pour la gestion des sessions
-- Providers : Email/Password, Google, Facebook
-
-#### Emails
-- SendGrid pour les notifications
-- Templates pour :
-  - Confirmation de commande
-  - Rappel de réservation
-  - Newsletter
-
-#### Notion
-- Base de données pour la gestion des produits et services
-- Synchronisation des données via API
-- Gestion des contenus dynamiques
-
-#### Ollama
-- Modèles de langage pour :
-  - Analyse des avis clients
-  - Génération de contenu
-  - Assistance conversationnelle
-
-### 5. Fonctionnalités Avancées
-
-#### Système de Recommandations
 ```typescript
-// Logique de recommandation produits/services
-interface Recommendation {
-  type: 'product' | 'service';
-  baseItem: string;  // ID du produit/service acheté
-  recommendations: Array<{
-    id: string;
-    type: 'product' | 'service';
-    relevanceScore: number;
-  }>;
+// lib/ollama.ts
+interface ChatContext {
+  products?: Product[];
+  services?: Service[];
+  userProfile?: UserProfile;
 }
+
+// Intégration avec Notion et Supabase
+const generateResponse = async (
+  message: string,
+  context: ChatContext
+) => {
+  // Enrichir le contexte
+  const stockLevels = await supabase
+    .from('current_stock')
+    .select('*');
+    
+  const notionContent = await notion.databases
+    .query({
+      database_id: process.env.NOTION_PRODUCTS_DB_ID
+    });
+
+  return ollama.chat({
+    model: 'codestral:latest',
+    messages: [{
+      role: 'system',
+      content: formatContext({
+        ...context,
+        stock: stockLevels,
+        products: notionContent
+      })
+    }, {
+      role: 'user',
+      content: message
+    }]
+  });
+};
 ```
 
-#### Programme de Fidélité
-```typescript
-interface LoyaltyProgram {
-  userId: string;
-  points: number;
-  tier: 'bronze' | 'silver' | 'gold';
-  history: Array<{
-    date: Date;
-    action: string;
-    points: number;
-  }>;
-}
+## Configuration
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-key
+
+# Notion
+NOTION_API_KEY=your-notion-key
+NOTION_PRODUCTS_DB_ID=your-db-id
+NOTION_SERVICES_DB_ID=your-db-id
+
+# Ollama
+OLLAMA_API_URL=http://localhost:11434
+OLLAMA_MODEL=codestral:latest
 ```
 
-### 6. Optimisations
+## Flux de Données
 
-#### Performance
-- Images optimisées via Next/Image
-- Mise en cache des données statiques
-- Lazy loading des composants
+1. **Produits & Services**
+   - Gestion dans Notion (descriptions, images, catégories)
+   - Synchronisation vers Supabase pour le cache
+   - Stock en temps réel dans Supabase
 
-#### SEO
-- Métadonnées dynamiques
-- Sitemap automatique
-- Schema.org markup
+2. **Utilisateurs & Commandes**
+   - Authentification via Supabase
+   - Profils et préférences dans Supabase
+   - Historique des commandes en temps réel
 
-#### Analytics
-- Google Analytics
-- Hotjar pour le comportement utilisateur
-- Rapports de conversion
+3. **Chatbot & Assistance**
+   - Interface utilisateur Next.js
+   - Contexte enrichi depuis Notion et Supabase
+   - Réponses générées par Ollama
 
-## Déploiement
+## Bonnes Pratiques
 
-### Infrastructure
-- Vercel pour l'hébergement
-- PostgreSQL sur Supabase
-- CDN pour les assets statiques
+1. **Performance**
+   - Cache des données Notion dans Supabase
+   - Optimistic UI pour les mises à jour
+   - Pagination et lazy loading
 
-### CI/CD
-- GitHub Actions pour les tests
-- Déploiement automatique sur Vercel
-- Monitoring avec Sentry
+2. **Sécurité**
+   - Row Level Security dans Supabase
+   - Validation des entrées côté serveur
+   - Tokens d'API sécurisés
 
-## Roadmap Technique
+3. **Maintenance**
+   - Scripts de synchronisation automatisés
+   - Monitoring des services
+   - Sauvegardes régulières
 
-### Phase 1 (MVP)
-- [x] Setup Next.js avec Tailwind
-- [x] Création des composants de base
-- [x] Intégration Stripe
-- [x] Système d'authentification
-- [x] Intégration Notion
-- [x] Intégration Ollama
+## Évolution Future
 
-### Phase 2
-- [ ] Système de réservation
-- [ ] Programme de fidélité
-- [ ] Recommandations produits/services
+1. **Intégration**
+   - Webhooks Notion -> Supabase
+   - Fine-tuning Ollama
+   - API publique
 
-### Phase 3
-- [ ] Chat en direct
-- [ ] Application mobile
-- [ ] Internationalisation
+2. **Fonctionnalités**
+   - Analyse prédictive des stocks
+   - Recommandations personnalisées
+   - Chat multilingue
