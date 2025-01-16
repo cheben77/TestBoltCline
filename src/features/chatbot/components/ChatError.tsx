@@ -1,4 +1,4 @@
- est bon import React from 'react';
+import React from 'react';
 import { useChatError } from '../hooks/useChatError';
 import { ConnectionStatus } from './ConnectionStatus';
 
