@@ -105,19 +105,60 @@ Réponds de manière naturelle et utile en français.`;
     }
   }
 
-  async chatWithFile(message: string, model?: string, context?: { filename?: string; content?: string }): Promise<string> {
+  async chatWithFile(message: string, model?: string, context?: { filename?: string; content?: string; type?: string }): Promise<string> {
     if (model) {
       this.setModel(model);
     }
     try {
-      const prompt = `Tu es un assistant virtuel francophone pour StoaViva. Tu dois TOUJOURS répondre en français.
+      let prompt;
+      if (context?.type?.startsWith('image/')) {
+        // Pour les images, utiliser le format multimodal
+        prompt = JSON.stringify({
+          model: this.model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  data: context.content
+                },
+                {
+                  type: 'text',
+                  text: `Tu es un assistant virtuel francophone pour StoaViva. Tu dois TOUJOURS répondre en français.\n\nAnalyse cette image et réponds à la question en français : ${message}`
+                }
+              ]
+            }
+          ],
+          stream: false
+        });
+
+        // Appel direct à l'API Ollama pour les images
+        const response = await fetch(`${this.endpoint}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: prompt
+        });
+
+        if (!response.ok) {
+          throw new Error(`Ollama API error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.message?.content || 'Désolé, je n\'ai pas pu analyser l\'image.';
+      } else {
+        // Pour les fichiers texte, utiliser le format standard
+        prompt = `Tu es un assistant virtuel francophone pour StoaViva. Tu dois TOUJOURS répondre en français.
 
 Voici le contenu du fichier ${context?.filename} :
 ${context?.content}
 
 Analyse ce contenu et réponds à la question en français : ${message}`;
 
-      return this.generate(prompt);
+        return this.generate(prompt);
+      }
     } catch (error) {
       console.error('Erreur lors de la génération de la réponse:', error);
       throw error;

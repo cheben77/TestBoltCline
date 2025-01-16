@@ -4,23 +4,47 @@ interface ConnectionProps {
   name: string;
   icon: React.ReactNode;
   isConnected: boolean;
+  isLoading?: boolean;
   onClick: () => void;
 }
 
-const Connection: React.FC<ConnectionProps> = ({ name, icon, isConnected, onClick }) => (
+const Connection: React.FC<ConnectionProps> = ({ name, icon, isConnected, isLoading = false, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-      isConnected ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-    }`}
-    title={`${isConnected ? 'Connecté' : 'Non connecté'} à ${name}`}
+    disabled={isLoading}
+    className={`relative flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${
+      isConnected 
+        ? 'bg-green-100 text-green-800 hover:bg-green-200 shadow-sm ring-1 ring-green-200' 
+        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+    } ${isLoading ? 'cursor-wait opacity-75' : ''}`}
+    title={`${isConnected ? 'Connecté' : 'Non connecté'} à ${name}. ${isLoading ? 'Connexion en cours...' : `Cliquez pour ${isConnected ? 'déconnecter' : 'connecter'}`}`}
   >
-    {icon}
+    <div className={`transition-transform duration-300 ${isConnected ? 'scale-110' : 'scale-100'}`}>
+      {icon}
+    </div>
     <span className="text-sm font-medium">{name}</span>
-    <div className={`flex items-center gap-1 ml-1 ${isConnected ? 'text-green-600' : 'text-gray-500'}`}>
-      <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-600' : 'bg-gray-400'}`} />
-      <span className="text-xs">
-        {isConnected ? 'Connecté' : 'Non connecté'}
+    <div className={`flex items-center gap-1.5 ml-2 transition-opacity duration-300 ${
+      isConnected ? 'opacity-100' : 'opacity-70'
+    }`}>
+      <div className={`relative w-2 h-2 rounded-full transition-all duration-300 ${
+        isLoading 
+          ? 'bg-yellow-400 animate-ping'
+          : isConnected 
+            ? 'bg-green-500 animate-pulse shadow-sm shadow-green-200' 
+            : 'bg-gray-400'
+      }`}>
+        {isLoading && (
+          <div className="absolute inset-0 rounded-full bg-yellow-400 animate-pulse"></div>
+        )}
+      </div>
+      <span className={`text-xs font-medium ${
+        isLoading 
+          ? 'text-yellow-600'
+          : isConnected 
+            ? 'text-green-600' 
+            : 'text-gray-500'
+      }`}>
+        {isLoading ? 'Connexion...' : isConnected ? 'Connecté' : 'Non connecté'}
       </span>
     </div>
   </button>
@@ -30,6 +54,7 @@ interface ChatConnectionsProps {
   connections: {
     name: string;
     isConnected: boolean;
+    isLoading?: boolean;
     onClick: () => void;
   }[];
 }
@@ -78,7 +103,11 @@ const ChatConnections: React.FC<ChatConnectionsProps> = ({ connections }) => {
 
   return (
     <div className="flex flex-wrap gap-2 p-4 bg-white border-b">
-      <h2 className="w-full text-sm font-medium text-gray-700 mb-2">État des connexions</h2>
+      <h2 className="w-full text-sm font-medium text-gray-700 mb-3">État des connexions</h2>
+      <p className="w-full text-xs text-gray-500 mb-3">
+        Cliquez sur un service pour le connecter ou le déconnecter. 
+        Les services connectés vous permettent d'accéder à des fonctionnalités supplémentaires.
+      </p>
       {connections.map((connection) => (
         <Connection
           key={connection.name}
