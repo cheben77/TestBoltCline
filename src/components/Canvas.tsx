@@ -9,6 +9,7 @@ interface CanvasProps {
 
 export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
   const [content, setContent] = useState(initialContent);
+  const [language, setLanguage] = useState('text');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'generated-content.txt';
+    a.download = `code.${language}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -36,13 +37,12 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
 
   const handleOpenInVSCode = async () => {
     try {
-      // Créer un fichier temporaire et l'ouvrir dans VSCode
       const response = await fetch('/api/chat/connect/vscode', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content, language })
       });
 
       if (!response.ok) {
@@ -56,12 +56,85 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
     }
   };
 
+  const formatCode = () => {
+    try {
+      switch (language) {
+        case 'json':
+          setContent(JSON.stringify(JSON.parse(content), null, 2));
+          break;
+        case 'html':
+          // Format HTML using basic indentation
+          setContent(content.replace(/></g, '>\n<').split('\n').map(line => line.trim()).join('\n'));
+          break;
+        case 'javascript':
+        case 'typescript':
+          // Basic JS/TS formatting
+          setContent(content
+            .replace(/[{]/g, '{\n')
+            .replace(/[}]/g, '\n}')
+            .replace(/;/g, ';\n')
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line)
+            .join('\n')
+          );
+          break;
+      }
+    } catch (e) {
+      console.error('Erreur de formatage:', e);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-[800px] h-[600px] flex flex-col">
         <div className="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
-          <h3 className="text-lg font-semibold">Canevas de génération</h3>
+          <div className="flex items-center gap-4">
+            <h3 className="text-lg font-semibold">Canevas de génération</h3>
+            <select 
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="bg-green-700 text-white rounded px-2 py-1 text-sm"
+            >
+              <option value="text">Text</option>
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+              <option value="html">HTML</option>
+              <option value="css">CSS</option>
+              <option value="json">JSON</option>
+              <option value="markdown">Markdown</option>
+            </select>
+          </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 mr-4">
+              <button
+                onClick={() => setContent(content.replace(/\t/g, '  '))}
+                className="p-2 hover:bg-green-700 rounded-lg transition-colors"
+                title="Convertir les tabulations en espaces"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10H9m3-5h3m-6 0h0.01M9 12h0.01M21 12c0 4.418-4.03 8-9 8s-9-3.582-9-8 4.03-8 9-8 9 3.582 9 8z"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => setContent(content.trim())}
+                className="p-2 hover:bg-green-700 rounded-lg transition-colors"
+                title="Supprimer les espaces inutiles"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+              <button
+                onClick={formatCode}
+                className="p-2 hover:bg-green-700 rounded-lg transition-colors"
+                title="Formater le code"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zm0 5h16"/>
+                </svg>
+              </button>
+            </div>
             <button
               onClick={handleCopy}
               className="p-2 hover:bg-green-700 rounded-lg transition-colors"

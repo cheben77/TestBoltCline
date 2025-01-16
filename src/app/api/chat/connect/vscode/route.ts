@@ -7,13 +7,33 @@ import { tmpdir } from 'os';
 
 const execAsync = promisify(exec);
 
+const getFileExtension = (language: string): string => {
+  switch (language) {
+    case 'javascript':
+      return 'js';
+    case 'typescript':
+      return 'ts';
+    case 'html':
+      return 'html';
+    case 'css':
+      return 'css';
+    case 'json':
+      return 'json';
+    case 'markdown':
+      return 'md';
+    default:
+      return 'txt';
+  }
+};
+
 export async function POST(request: Request) {
   try {
-    const { content } = await request.json();
+    const { content, language = 'text' } = await request.json();
     
     // Créer un fichier temporaire avec le contenu
     const tempDir = tmpdir();
-    const tempFile = join(tempDir, `vscode-temp-${Date.now()}.txt`);
+    const extension = getFileExtension(language);
+    const tempFile = join(tempDir, `vscode-temp-${Date.now()}.${extension}`);
     
     await writeFile(tempFile, content);
     
@@ -23,7 +43,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       status: 'connected',
       message: 'Fichier ouvert dans VSCode',
-      path: tempFile
+      path: tempFile,
+      language
     });
   } catch (error) {
     console.error('Erreur lors de l\'ouverture dans VSCode:', error);
