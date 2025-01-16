@@ -1,2 +1,5 @@
-export { default as Chatbot } from './components/Chatbot';
-export { default as ollamaService } from './services/ollama';
+export { Chatbot } from './components/Chatbot';
+export { ChatError } from './components/ChatError';
+export { useChatbot } from './hooks/useChatbot';
+export { useChatError } from './hooks/useChatError';
+export { ollamaService } from './services/ollama';

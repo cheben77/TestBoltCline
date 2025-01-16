@@ -1,38 +1,30 @@
 import { useState, useCallback } from 'react';
-import type { ChatMessage } from '@/types/ollama';
-
-interface ChatState {
-  messages: ChatMessage[];
-  isLoading: boolean;
-  error: string | null;
-}
-
-interface ChatContext {
-  type: 'notion' | 'file';
-  data?: any;
-}
+import { ChatMessage } from '@/types/ollama';
 
 export function useChatbot() {
-  const [state, setState] = useState<ChatState>({
-    messages: [],
-    isLoading: false,
-    error: null,
-  });
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const sendMessage = useCallback(async (message: string, context?: ChatContext) => {
-    setState(prev => ({
-      ...prev,
-      isLoading: true,
-      error: null
-    }));
-
+  const sendMessage = useCallback(async (content: string, context?: { type: string }) => {
     try {
+      setIsLoading(true);
+      setError(null);
+
+      // Ajouter le message de l'utilisateur
+      const userMessage: ChatMessage = { role: 'user', content };
+      setMessages(prev => [...prev, userMessage]);
+
+      // Envoyer la requête à l'API
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message, context }),
+        body: JSON.stringify({
+          message: content,
+          context,
+        }),
       });
 
       if (!response.ok) {
@@ -41,54 +33,36 @@ export function useChatbot() {
 
       const data = await response.json();
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setState(prev => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          { role: 'user', content: message },
-          { role: 'assistant', content: data.response }
-        ],
-        isLoading: false
-      }));
-
-      return data.response;
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Une erreur est survenue'
-      }));
-      throw error;
+      // Ajouter la réponse de l'assistant
+      const assistantMessage: ChatMessage = {
+        role: 'assistant',
+        content: data.response,
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (err) {
+      console.error('Erreur dans useChatbot:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      setMessages(prev => prev.slice(0, -1)); // Retirer le dernier message en cas d'erreur
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   const clearChat = useCallback(() => {
-    setState({
-      messages: [],
-      isLoading: false,
-      error: null
-    });
+    setMessages([]);
+    setError(null);
   }, []);
 
   const clearError = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      error: null
-    }));
+    setError(null);
   }, []);
 
   return {
-    messages: state.messages,
-    isLoading: state.isLoading,
-    error: state.error,
+    messages,
+    isLoading,
+    error,
     sendMessage,
     clearChat,
-    clearError
+    clearError,
   };
 }
-
-export default useChatbot;

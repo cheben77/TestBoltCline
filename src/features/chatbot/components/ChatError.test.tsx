@@ -1,67 +1,96 @@
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import { ChatError } from './ChatError';
+import { useChatError } from '../hooks/useChatError';
+import { useChatConnection } from '../hooks/useChatConnection';
+
+// Mock des hooks
+jest.mock('../hooks/useChatError');
+jest.mock('../hooks/useChatConnection');
 
 describe('ChatError', () => {
-  const defaultMessage = 'Une erreur est survenue';
+  const mockMessage = 'Une erreur est survenue';
+  const mockOnRetry = jest.fn();
+  const mockClearError = jest.fn();
+  const mockCheckConnections = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn();
+
+    // Mock du hook useChatError
+    (useChatError as jest.Mock).mockReturnValue({
+      clearError: mockClearError
+    });
+
+    // Mock du hook useChatConnection
+    (useChatConnection as jest.Mock).mockReturnValue({
+      ollamaStatus: {
+        isConnected: false,
+        isLoading: false,
+        error: null
+      },
+      notionStatus: {
+        isConnected: false,
+        isLoading: false,
+        error: null
+      },
+      cudaStatus: {
+        isConnected: false,
+        isLoading: false,
+        error: null
+      },
+      checkConnections: mockCheckConnections
+    });
+  });
 
   it('affiche le message d\'erreur', () => {
-    render(<ChatError message={defaultMessage} />);
-    expect(screen.getByText(defaultMessage)).toBeInTheDocument();
+    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
+    expect(screen.getByText(mockMessage)).toBeInTheDocument();
   });
 
-  it('n\'affiche pas le bouton réessayer si onRetry n\'est pas fourni', () => {
-    render(<ChatError message={defaultMessage} />);
-    expect(screen.queryByText('Réessayer')).not.toBeInTheDocument();
+  it('affiche les boutons d\'action', () => {
+    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
+    expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /importer/i })).toBeInTheDocument();
   });
 
-  it('n\'affiche pas le bouton fermer si onDismiss n\'est pas fourni', () => {
-    render(<ChatError message={defaultMessage} />);
-    expect(screen.queryByText('Fermer')).not.toBeInTheDocument();
+  it('appelle clearError et onRetry quand le bouton réessayer est cliqué', () => {
+    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
+    fireEvent.click(screen.getByRole('button', { name: /réessayer/i }));
+    expect(mockClearError).toHaveBeenCalledTimes(1);
+    expect(mockOnRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('affiche le bouton réessayer si onRetry est fourni', () => {
-    render(<ChatError message={defaultMessage} onRetry={() => {}} />);
-    expect(screen.getByText('Réessayer')).toBeInTheDocument();
-  });
+  it('gère l\'importation de fichier', async () => {
+    const file = new File(['{"test": "data"}'], 'test.json', { type: 'application/json' });
+    (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
 
-  it('appelle onRetry quand le bouton réessayer est cliqué', () => {
-    const onRetry = jest.fn();
-    render(<ChatError message={defaultMessage} onRetry={onRetry} />);
+    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
     
-    fireEvent.click(screen.getByText('Réessayer'));
-    expect(onRetry).toHaveBeenCalledTimes(1);
-  });
-
-  it('appelle onDismiss quand le bouton fermer est cliqué', () => {
-    const onDismiss = jest.fn();
-    render(<ChatError message={defaultMessage} onDismiss={onDismiss} />);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
     
-    fireEvent.click(screen.getByText('Fermer'));
-    expect(onDismiss).toHaveBeenCalledTimes(1);
+    // Simuler la sélection de fichier
+    fireEvent.click(screen.getByRole('button', { name: /importer/i }));
+    fireEvent.change(input, { target: { files: [file] } });
+
+    // Vérifier que le fetch a été appelé avec les bons paramètres
+    expect(global.fetch).toHaveBeenCalledWith('/api/chat/import', expect.any(Object));
   });
 
-  it('affiche l\'icône d\'erreur', () => {
-    render(<ChatError message={defaultMessage} />);
-    const icon = screen.getByRole('img', { hidden: true });
-    expect(icon).toBeInTheDocument();
+  it('affiche le composant ConnectionStatus', () => {
+    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
+    expect(screen.getByText('État des connexions')).toBeInTheDocument();
+    expect(screen.getByText('Ollama')).toBeInTheDocument();
+    expect(screen.getByText('Notion')).toBeInTheDocument();
+    expect(screen.getByText('CUDA')).toBeInTheDocument();
   });
 
-  it('applique les styles d\'erreur', () => {
-    render(<ChatError message={defaultMessage} />);
-    const container = screen.getByText(defaultMessage).closest('.bg-red-100');
-    expect(container).toHaveClass('bg-red-100', 'text-red-800');
-  });
-
-  it('gère les messages longs correctement', () => {
-    const longMessage = 'a'.repeat(100);
-    render(<ChatError message={longMessage} />);
-    expect(screen.getByText(longMessage)).toBeInTheDocument();
-  });
-
-  it('gère les messages avec des caractères spéciaux', () => {
-    const specialMessage = '!@#$%^&*()_+';
-    render(<ChatError message={specialMessage} />);
-    expect(screen.getByText(specialMessage)).toBeInTheDocument();
+  it('applique les styles appropriés', () => {
+    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
+    const errorContainer = screen.getByTestId('chat-error');
+    expect(errorContainer).toHaveClass('bg-red-100', 'border-red-400');
   });
 });

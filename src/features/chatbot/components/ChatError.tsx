@@ -1,51 +1,89 @@
+ est bon import React from 'react';
+import { useChatError } from '../hooks/useChatError';
+import { ConnectionStatus } from './ConnectionStatus';
+
 interface ChatErrorProps {
   message: string;
-  onRetry?: () => void;
-  onDismiss?: () => void;
+  onRetry: () => void;
 }
 
-export function ChatError({ message, onRetry, onDismiss }: ChatErrorProps) {
+export function ChatError({ message, onRetry }: ChatErrorProps) {
+  const { clearError } = useChatError();
+
+  const handleRetry = () => {
+    clearError();
+    onRetry();
+  };
+
+  const handleImport = async () => {
+    try {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const content = event.target?.result as string;
+            const data = JSON.parse(content);
+            
+            // Envoyer les données au serveur
+            const response = await fetch('/api/chat/import', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+              throw new Error('Erreur lors de l\'importation');
+            }
+
+            // Rafraîchir l'interface
+            handleRetry();
+          } catch (error) {
+            console.error('Erreur lors de l\'importation:', error);
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      input.click();
+    } catch (error) {
+      console.error('Erreur lors de l\'importation:', error);
+    }
+  };
+
   return (
-    <div className="flex justify-center mb-4">
-      <div className="bg-red-100 text-red-800 rounded-lg p-3 max-w-[80%]">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <svg
-              className="h-5 w-5 text-red-400"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">{message}</p>
-            <div className="mt-2 flex space-x-4">
-              {onRetry && (
-                <button
-                  onClick={onRetry}
-                  className="text-xs text-red-600 hover:text-red-800 font-medium"
-                >
-                  Réessayer
-                </button>
-              )}
-              {onDismiss && (
-                <button
-                  onClick={onDismiss}
-                  className="text-xs text-gray-600 hover:text-gray-800"
-                >
-                  Fermer
-                </button>
-              )}
-            </div>
-          </div>
+    <div className="space-y-4">
+      <div 
+        data-testid="chat-error"
+        className="flex flex-col items-center p-4 mb-4 bg-red-100 border border-red-400 rounded-lg"
+      >
+        <p className="text-red-700 mb-3">{message}</p>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleRetry}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          >
+            Réessayer
+          </button>
+          <button
+            onClick={handleImport}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            Importer
+          </button>
         </div>
       </div>
+
+      {/* Afficher l'état des connexions */}
+      <ConnectionStatus />
     </div>
   );
 }

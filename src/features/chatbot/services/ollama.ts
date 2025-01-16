@@ -1,92 +1,102 @@
+import { ChatMessage } from '@/types/ollama';
+
+const OLLAMA_API_URL = process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://localhost:11434';
+
+interface OllamaResponse {
+  message: ChatMessage;
+  done: boolean;
+}
+
+interface OllamaError extends Error {
+  status?: number;
+  code?: string;
+}
+
 class OllamaService {
-  private endpoint: string;
-  private modelActuel: string;
-  private temperature: number;
-  private maxTokens: number;
-
-  constructor() {
-    this.endpoint = 'http://127.0.0.1:11434/api';
-    this.modelActuel = 'llama3.1:8b';
-    this.temperature = 0.7;
-    this.maxTokens = 2048;
-  }
-
-  async chat(message: string, model?: string): Promise<string> {
-    if (model && model !== this.modelActuel) {
-      console.log('Changement de modèle :', this.modelActuel, '->', model);
-      this.modelActuel = model;
-    }
-
-    console.log('Configuration Ollama:', {
-      endpoint: this.endpoint,
-      modelActuel: this.modelActuel,
-      temperature: this.temperature,
-      maxTokens: this.maxTokens
-    });
-
-    console.log('Envoi de la requête à Ollama avec le modèle:', this.modelActuel);
+  private async fetchWithTimeout(url: string, options: RequestInit, timeout = 30000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(`${this.endpoint}/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.modelActuel,
-          prompt: message,
-          temperature: this.temperature,
-          max_tokens: this.maxTokens,
-        }),
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const text = await response.text();
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      
-      let fullResponse = '';
-      for (const line of lines) {
-        try {
-          const data = JSON.parse(line);
-          if (data.response) {
-            fullResponse += data.response;
-            console.log('Réponse partielle:', fullResponse);
-          }
-          if (data.done) {
-            break;
-          }
-        } catch (e) {
-          console.error('Erreur de parsing JSON:', e);
-        }
-      }
-
-      console.log('Réponse complète générée:', fullResponse);
-      return fullResponse;
+      clearTimeout(id);
+      return response;
     } catch (error) {
-      console.error('Erreur lors de la génération:', error);
+      clearTimeout(id);
       throw error;
     }
   }
 
-  async chatWithNotion(message: string, model?: string, notionContext?: any): Promise<string> {
-    const contextPrompt = notionContext ? 
-      `Contexte de la base de données Notion:\n${JSON.stringify(notionContext, null, 2)}\n\nQuestion: ${message}` :
-      message;
+  async chat({ model, messages }: { model: string; messages: ChatMessage[] }): Promise<OllamaResponse> {
+    try {
+      const response = await this.fetchWithTimeout(
+        `${OLLAMA_API_URL}/api/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            stream: false,
+            options: {
+              temperature: 0.7,
+              top_p: 0.9,
+              frequency_penalty: 0.0,
+              presence_penalty: 0.0,
+            }
+          }),
+        }
+      );
 
-    return this.chat(contextPrompt, model);
+      if (!response.ok) {
+        const error = new Error('Erreur lors de la communication avec Ollama') as OllamaError;
+        error.status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      return {
+        message: {
+          role: 'assistant',
+          content: data.message.content,
+        },
+        done: true,
+      };
+    } catch (error) {
+      console.error('Erreur lors de la communication avec Ollama:', error);
+      const ollamaError = error as OllamaError;
+      if (ollamaError.name === 'AbortError') {
+        throw new Error('La requête a été interrompue en raison d\'un délai d\'attente dépassé');
+      }
+      throw new Error('Erreur lors de la communication avec le modèle de langage');
+    }
   }
 
-  async chatWithFile(message: string, model?: string, fileContext?: { filename: string; content: string }): Promise<string> {
-    const contextPrompt = fileContext ? 
-      `Contenu du fichier ${fileContext.filename}:\n${fileContext.content}\n\nQuestion: ${message}` :
-      message;
+  async getModels(): Promise<string[]> {
+    try {
+      const response = await this.fetchWithTimeout(
+        `${OLLAMA_API_URL}/api/tags`,
+        {
+          method: 'GET',
+        }
+      );
 
-    return this.chat(contextPrompt, model);
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la récupération des modèles: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.models.map((model: any) => model.name);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des modèles:', error);
+      throw new Error('Impossible de récupérer la liste des modèles');
+    }
   }
 }
 
-const ollamaService = new OllamaService();
-export default ollamaService;
+export const ollamaService = new OllamaService();

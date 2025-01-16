@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChatbot } from '../hooks/useChatbot';
 import { ChatMessage } from '@/types/ollama';
+import { ChatError } from './ChatError';
 
 export function Chatbot() {
   const {
@@ -101,25 +102,18 @@ export function Chatbot() {
               <div className="flex justify-start mb-4">
                 <div className="bg-gray-200 text-gray-800 rounded-lg rounded-bl-none p-3">
                   <div className="flex space-x-2">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div data-testid="loading-dot" className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div data-testid="loading-dot" className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div data-testid="loading-dot" className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>
             )}
             {error && (
-              <div className="flex justify-center mb-4">
-                <div className="bg-red-100 text-red-800 rounded-lg p-3 max-w-[80%]">
-                  <p className="text-sm">{error}</p>
-                  <button
-                    onClick={clearError}
-                    className="text-xs text-red-600 hover:text-red-800 underline mt-1"
-                  >
-                    Réessayer
-                  </button>
-                </div>
-              </div>
+              <ChatError 
+                message={error} 
+                onRetry={clearError}
+              />
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -139,6 +133,7 @@ export function Chatbot() {
                 type="submit"
                 disabled={isLoading || !inputValue.trim()}
                 className="bg-green-500 text-white rounded-lg px-4 py-2 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                aria-label="Envoyer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

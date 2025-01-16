@@ -1,104 +1,85 @@
-import type {
-  ChatMessage,
-  ChatRequest,
-  ChatResponse,
-  OllamaModel,
-  OllamaError,
-  EmbeddingRequest,
-  EmbeddingResponse
-} from '@/types/ollama';
+import { ChatMessage } from '@/types/ollama';
 
-export class OllamaService {
-  private static instance: OllamaService;
-  private baseUrl: string;
+const OLLAMA_API_URL = process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://localhost:11434';
 
-  private constructor() {
-    this.baseUrl = process.env.OLLAMA_API_URL || 'http://localhost:11434';
-  }
+interface OllamaResponse {
+  message: ChatMessage;
+  done: boolean;
+}
 
-  public static getInstance(): OllamaService {
-    if (!OllamaService.instance) {
-      OllamaService.instance = new OllamaService();
-    }
-    return OllamaService.instance;
-  }
+class OllamaService {
+  private async fetchWithTimeout(url: string, options: RequestInit, timeout = 30000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
 
-  private handleError(error: any): OllamaError {
-    const ollamaError = new Error(error.message) as OllamaError;
-    ollamaError.status = error.status;
-    ollamaError.code = error.code;
-    ollamaError.requestId = error.requestId;
-    return ollamaError;
-  }
-
-  public async chat(request: ChatRequest): Promise<ChatResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
       });
-
-      if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data;
+      clearTimeout(id);
+      return response;
     } catch (error) {
-      console.error('Error calling Ollama API:', error);
-      throw this.handleError(error);
+      clearTimeout(id);
+      throw error;
     }
   }
 
-  public async getModels(): Promise<OllamaModel[]> {
+  async chat({ model, messages }: { model: string; messages: ChatMessage[] }): Promise<OllamaResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/tags`);
+      const response = await this.fetchWithTimeout(
+        `${OLLAMA_API_URL}/api/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            stream: false,
+          }),
+        }
+      );
+
       if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.statusText}`);
+        throw new Error(`Erreur Ollama: ${response.statusText}`);
       }
 
       const data = await response.json();
-      return data.models;
-    } catch (error) {
-      console.error('Error getting Ollama models:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  public async generateEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/embeddings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      return {
+        message: {
+          role: 'assistant',
+          content: data.message.content,
         },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data;
+        done: true,
+      };
     } catch (error) {
-      console.error('Error generating embedding:', error);
-      throw this.handleError(error);
+      console.error('Erreur lors de la communication avec Ollama:', error);
+      throw new Error('Erreur lors de la communication avec le modèle de langage');
     }
   }
 
-  public async isModelAvailable(modelName: string): Promise<boolean> {
+  async getModels(): Promise<string[]> {
     try {
-      const models = await this.getModels();
-      return models.some(model => model.name === modelName);
+      const response = await this.fetchWithTimeout(
+        `${OLLAMA_API_URL}/api/tags`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la récupération des modèles: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.models.map((model: any) => model.name);
     } catch (error) {
-      console.error('Error checking model availability:', error);
-      return false;
+      console.error('Erreur lors de la récupération des modèles:', error);
+      throw new Error('Impossible de récupérer la liste des modèles');
     }
   }
 }
 
-export const ollamaService = OllamaService.getInstance();
+export const ollamaService = new OllamaService();

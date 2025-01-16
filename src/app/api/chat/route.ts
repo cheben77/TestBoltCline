@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { notionService } from '@/services/notion';
 import { ollamaService } from '@/services/ollama';
-import { Product } from '@/types/notion';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +9,7 @@ export async function POST(request: NextRequest) {
     // Enrichir le contexte avec les données de Notion si nécessaire
     let notionContext = null;
     if (context?.type === 'notion') {
-      const response = await notionService.getProducts({
+      const products = await notionService.getProducts({
         filter: {
           or: [
             { property: 'Name', rich_text: { contains: message } },
@@ -19,18 +18,10 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      if (response.results.length > 0) {
+      if (products.results.length > 0) {
         notionContext = {
           type: 'products',
-          data: response.results.map((product: Product) => ({
-            name: product.name,
-            description: product.description,
-            price: product.price,
-            eco_impact: {
-              score: product.ecoScore
-            },
-            benefits: product.benefits
-          }))
+          data: products.results
         };
       }
     }
@@ -44,7 +35,7 @@ export async function POST(request: NextRequest) {
           content: `Tu es un assistant spécialisé dans les produits et services écologiques de StoaViva. 
           ${notionContext ? `
           Voici les produits pertinents trouvés :
-          ${notionContext.data.map(product => `
+          ${notionContext.data.map((product: any) => `
             - ${product.name}
             - Description: ${product.description}
             - Prix: ${product.price}€

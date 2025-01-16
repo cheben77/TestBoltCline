@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { Chatbot } from './Chatbot';
 import { useChatbot } from '../hooks/useChatbot';
@@ -97,7 +97,7 @@ describe('Chatbot', () => {
     render(<Chatbot />);
     fireEvent.click(screen.getByTitle('Assistant StoaViva'));
 
-    const loadingDots = screen.getAllByRole('presentation');
+    const loadingDots = screen.getAllByTestId('loading-dot');
     expect(loadingDots).toHaveLength(3);
   });
 
@@ -131,7 +131,7 @@ describe('Chatbot', () => {
     render(<Chatbot />);
     fireEvent.click(screen.getByTitle('Assistant StoaViva'));
 
-    const submitButton = screen.getByRole('button', { name: /envoyer/i });
+    const submitButton = screen.getByLabelText('Envoyer');
     expect(submitButton).toBeDisabled();
   });
 
