@@ -9,6 +9,12 @@ import { notionService } from '@/services/notion';
 import { connectionsService } from '@/services/connections';
 
 // Types
+interface Shortcut {
+  key: string;
+  description: string;
+  action: () => void;
+}
+
 interface ChatToolCategory {
   id: string;
   name: string;
@@ -205,6 +211,63 @@ export default function Chatbot(): React.ReactElement {
   ];
 
   const [isOpen, setIsOpen] = useState(false);
+  const [mode, setMode] = useState<'simple' | 'notion' | 'file'>('notion');
+
+  // Raccourcis clavier
+  const shortcuts: Shortcut[] = [
+    {
+      key: 'Ctrl + /',
+      description: 'Ouvrir/Fermer le chat',
+      action: () => setIsOpen(!isOpen)
+    },
+    {
+      key: 'Ctrl + M',
+      description: 'Changer de mode',
+      action: () => {
+        const modes = ['simple', 'notion', 'file'];
+        const currentIndex = modes.indexOf(mode);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        setMode(modes[nextIndex] as 'simple' | 'notion' | 'file');
+      }
+    },
+    {
+      key: 'Ctrl + Enter',
+      description: 'Envoyer le message',
+      action: () => {
+        const form = document.querySelector('form');
+        if (form) form.requestSubmit();
+      }
+    }
+  ];
+
+  // Gestionnaire des raccourcis clavier
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey) {
+        switch (e.key) {
+          case '/':
+            e.preventDefault();
+            setIsOpen(!isOpen);
+            break;
+          case 'm':
+            e.preventDefault();
+            const modes = ['simple', 'notion', 'file'];
+            const currentIndex = modes.indexOf(mode);
+            const nextIndex = (currentIndex + 1) % modes.length;
+            setMode(modes[nextIndex] as 'simple' | 'notion' | 'file');
+            break;
+          case 'Enter':
+            e.preventDefault();
+            const form = document.querySelector('form');
+            if (form) form.requestSubmit();
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, mode]);
   const [connections, setConnections] = useState([
     { name: 'Notion', isConnected: false, isLoading: false, onClick: () => handleConnect('notion') },
     { name: 'Steam', isConnected: false, isLoading: false, onClick: () => handleConnect('steam') },
@@ -227,7 +290,6 @@ export default function Chatbot(): React.ReactElement {
   const [showCanvas, setShowCanvas] = useState(false);
   const [canvasContent, setCanvasContent] = useState('');
   const [uploadProgress, setUploadProgress] = useState<{ filename: string; progress: number } | null>(null);
-  const [mode, setMode] = useState<'simple' | 'notion' | 'file'>('notion');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
 
@@ -464,6 +526,16 @@ export default function Chatbot(): React.ReactElement {
 
       {isOpen && (
         <div className="fixed bottom-4 right-4 w-[95vw] md:w-[800px] lg:w-[1000px] h-[90vh] bg-white rounded-lg shadow-xl flex flex-col z-40">
+          <div className="flex justify-between items-center p-2 bg-green-600 text-white rounded-t-lg">
+            <div className="flex gap-4">
+              {shortcuts.map((shortcut, index) => (
+                <div key={index} className="flex items-center gap-2 text-sm">
+                  <kbd className="px-2 py-1 bg-green-700 rounded">{shortcut.key}</kbd>
+                  <span>{shortcut.description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
           <ChatConnections connections={connections} />
           <ChatToolbox
             onToolSelect={(tool) => tool.action()}
