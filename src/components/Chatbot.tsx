@@ -544,7 +544,7 @@ export default function Chatbot(): React.ReactElement {
             setInput={setInput}
             categories={categories}
           />
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 h-[60vh]">
             {messages.map((message, index) => (
               <div key={index} className={`mb-4 ${message.type === 'user' ? 'text-right' : ''}`}>
                 <div className={`inline-block p-3 rounded-lg ${
@@ -748,24 +748,6 @@ export default function Chatbot(): React.ReactElement {
               </button>
             </form>
 
-            <div className="mt-4 text-sm text-gray-500">
-              <p>Exemples de questions :</p>
-              <ul className="list-disc list-inside">
-                {mode === 'file' ? (
-                  <>
-                    <li>Que contient ce fichier ?</li>
-                    <li>Peux-tu résumer le contenu ?</li>
-                    <li>Quels sont les points principaux ?</li>
-                  </>
-                ) : (
-                  <>
-                    <li>Quels sont vos produits de bien-être ?</li>
-                    <li>Avez-vous des services pour la relaxation ?</li>
-                    <li>Je cherche des produits écologiques pour le quotidien</li>
-                  </>
-                )}
-              </ul>
-            </div>
           </div>
         </div>
       )}
