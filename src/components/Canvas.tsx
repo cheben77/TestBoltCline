@@ -1,200 +1,29 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { Template } from '@/lib/templates';
 
 interface CanvasProps {
   onClose: () => void;
   initialContent?: string;
 }
 
-interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  template: string;
-  language: string;
-}
-
-const AUTOMATION_TOOLS: Tool[] = [
-  {
-    id: 'notion-sync',
-    name: 'Synchronisation Notion',
-    description: 'Synchronise des données avec une base Notion',
-    language: 'typescript',
-    template: `import { Client } from '@notionhq/client';
-
-const notion = new Client({ auth: process.env.NOTION_TOKEN });
-const databaseId = 'your-database-id';
-
-async function syncData() {
-  try {
-    const response = await notion.databases.query({
-      database_id: databaseId,
-    });
-    
-    // Traitement des données
-    const items = response.results.map(page => ({
-      // Mappez vos champs ici
-    }));
-    
-    return items;
-  } catch (error) {
-    console.error('Erreur:', error);
-    throw error;
-  }
-}`
-  },
-  {
-    id: 'file-processor',
-    name: 'Traitement de fichiers',
-    description: 'Script pour traiter des fichiers en lot',
-    language: 'typescript',
-    template: `import { readdir, readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
-
-async function processFiles(directory: string) {
-  try {
-    const files = await readdir(directory);
-    
-    for (const file of files) {
-      const content = await readFile(join(directory, file), 'utf-8');
-      
-      // Traitement du fichier
-      const processed = content.toUpperCase();
-      
-      await writeFile(join(directory, \`processed_\${file}\`), processed);
-    }
-  } catch (error) {
-    console.error('Erreur:', error);
-    throw error;
-  }
-}`
-  },
-  {
-    id: 'api-integration',
-    name: 'Intégration API',
-    description: 'Template pour intégrer une API externe',
-    language: 'typescript',
-    template: `import axios from 'axios';
-
-interface ApiConfig {
-  baseURL: string;
-  apiKey: string;
-}
-
-class ApiClient {
-  private client;
-  
-  constructor(config: ApiConfig) {
-    this.client = axios.create({
-      baseURL: config.baseURL,
-      headers: {
-        'Authorization': \`Bearer \${config.apiKey}\`,
-      },
-    });
-  }
-  
-  async getData() {
-    try {
-      const response = await this.client.get('/endpoint');
-      return response.data;
-    } catch (error) {
-      console.error('Erreur API:', error);
-      throw error;
-    }
-  }
-}`
-  },
-  {
-    id: 'data-transform',
-    name: 'Transformation de données',
-    description: 'Script de transformation de données',
-    language: 'typescript',
-    template: `interface InputData {
-  // Définissez votre structure d'entrée
-}
-
-interface OutputData {
-  // Définissez votre structure de sortie
-}
-
-function transformData(input: InputData): OutputData {
-  // Logique de transformation
-  return {
-    // Mappez vos champs
-  };
-}
-
-function validateData(data: OutputData): boolean {
-  // Validation des données
-  return true;
-}`
-  },
-  {
-    id: 'automation-workflow',
-    name: 'Workflow d\'automatisation',
-    description: 'Template de workflow complet',
-    language: 'typescript',
-    template: `import { EventEmitter } from 'events';
-
-class AutomationWorkflow extends EventEmitter {
-  private steps: Array<() => Promise<void>> = [];
-  
-  addStep(step: () => Promise<void>) {
-    this.steps.push(step);
-  }
-  
-  async execute() {
-    try {
-      for (const step of this.steps) {
-        this.emit('stepStart');
-        await step();
-        this.emit('stepComplete');
-      }
-      this.emit('workflowComplete');
-    } catch (error) {
-      this.emit('error', error);
-      throw error;
-    }
-  }
-}`
-  },
-  {
-    id: 'cron-job',
-    name: 'Tâche planifiée',
-    description: 'Template pour tâche CRON',
-    language: 'typescript',
-    template: `import cron from 'node-cron';
-
-class ScheduledTask {
-  private schedule: string;
-  private task: () => Promise<void>;
-  
-  constructor(schedule: string, task: () => Promise<void>) {
-    this.schedule = schedule;
-    this.task = task;
-  }
-  
-  start() {
-    cron.schedule(this.schedule, async () => {
-      try {
-        await this.task();
-        console.log('Tâche exécutée avec succès');
-      } catch (error) {
-        console.error('Erreur:', error);
-      }
-    });
-  }
-}`
-  }
-];
-
 export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
   const [content, setContent] = useState(initialContent);
   const [language, setLanguage] = useState('text');
   const [preview, setPreview] = useState('');
-  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTool, setSelectedTool] = useState<Template | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [notionDatabaseId, setNotionDatabaseId] = useState('');
+  const [notionTemplates, setNotionTemplates] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -203,6 +32,92 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
     }
     updatePreview(content);
   }, [content]);
+
+  const loadTemplates = async () => {
+    try {
+      const response = await fetch('/api/templates');
+      const data = await response.json();
+      setTemplates(data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des templates:', error);
+    }
+  };
+
+  const loadNotionTemplates = async () => {
+    if (!notionDatabaseId) return;
+
+    try {
+      const response = await fetch(`/api/notion/sync?databaseId=${notionDatabaseId}`);
+      const data = await response.json();
+      setNotionTemplates(data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des templates Notion:', error);
+    }
+  };
+
+  const syncToNotion = async () => {
+    if (!notionDatabaseId) return;
+
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/notion/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          databaseId: notionDatabaseId,
+          content,
+          language,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la synchronisation');
+      }
+
+      await loadNotionTemplates();
+    } catch (error) {
+      console.error('Erreur lors de la synchronisation avec Notion:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const saveAsTemplate = async () => {
+    if (!editingTemplate) return;
+
+    try {
+      await fetch('/api/templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...editingTemplate,
+          template: content,
+          language,
+        }),
+      });
+
+      await loadTemplates();
+      setIsEditing(false);
+      setEditingTemplate(null);
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du template:', error);
+    }
+  };
+
+  const deleteTemplate = async (id: string) => {
+    try {
+      await fetch(`/api/templates?id=${id}`, {
+        method: 'DELETE',
+      });
+      await loadTemplates();
+    } catch (error) {
+      console.error('Erreur lors de la suppression du template:', error);
+    }
+  };
 
   const updatePreview = (code: string) => {
     try {
@@ -213,7 +128,6 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
         case 'javascript':
         case 'typescript':
           try {
-            // Évalue le code JS/TS et affiche le résultat
             const result = new Function(`return ${code}`)();
             setPreview(JSON.stringify(result, null, 2));
           } catch (error) {
@@ -221,12 +135,10 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
           }
           break;
         case 'json':
-          // Formate et valide le JSON
           const parsed = JSON.parse(code);
           setPreview(JSON.stringify(parsed, null, 2));
           break;
         case 'markdown':
-          // Pour le markdown, on pourrait ajouter une lib de rendu markdown
           setPreview(code);
           break;
         default:
@@ -305,10 +217,22 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
     updatePreview(content);
   };
 
-  const handleToolSelect = (tool: Tool) => {
+  const handleToolSelect = (tool: Template) => {
     setSelectedTool(tool);
     setLanguage(tool.language);
     setContent(tool.template);
+  };
+
+  const startNewTemplate = () => {
+    setIsEditing(true);
+    setEditingTemplate({
+      id: `template-${Date.now()}`,
+      name: '',
+      description: '',
+      language,
+      template: content,
+      isCustom: true,
+    });
   };
 
   return (
@@ -330,6 +254,22 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
               <option value="json">JSON</option>
               <option value="markdown">Markdown</option>
             </select>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={notionDatabaseId}
+                onChange={(e) => setNotionDatabaseId(e.target.value)}
+                placeholder="ID Base Notion"
+                className="px-2 py-1 text-sm bg-green-700 text-white rounded placeholder-green-300"
+              />
+              <button
+                onClick={syncToNotion}
+                disabled={!notionDatabaseId || isSyncing}
+                className="px-3 py-1 text-sm bg-green-700 hover:bg-green-800 rounded disabled:opacity-50"
+              >
+                {isSyncing ? 'Synchronisation...' : 'Sync Notion'}
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 mr-4">
@@ -444,20 +384,61 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
         </div>
         <div className="flex-1 p-4 flex gap-4">
           <div className="w-64 border-r pr-4">
-            <h4 className="font-medium mb-2">Outils d'automatisation</h4>
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-medium">Templates</h4>
+              <button
+                onClick={startNewTemplate}
+                className="text-sm px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+              >
+                Nouveau
+              </button>
+            </div>
             <div className="space-y-2">
-              {AUTOMATION_TOOLS.map(tool => (
-                <button
-                  key={tool.id}
-                  onClick={() => handleToolSelect(tool)}
-                  className={`w-full text-left p-2 rounded hover:bg-gray-100 transition-colors ${
-                    selectedTool?.id === tool.id ? 'bg-gray-100' : ''
-                  }`}
+              {templates.map(template => (
+                <div
+                  key={template.id}
+                  className="relative group"
                 >
-                  <div className="font-medium text-sm">{tool.name}</div>
-                  <div className="text-xs text-gray-500">{tool.description}</div>
-                </button>
+                  <button
+                    onClick={() => handleToolSelect(template)}
+                    className={`w-full text-left p-2 rounded hover:bg-gray-100 transition-colors ${
+                      selectedTool?.id === template.id ? 'bg-gray-100' : ''
+                    }`}
+                  >
+                    <div className="font-medium text-sm">{template.name}</div>
+                    <div className="text-xs text-gray-500">{template.description}</div>
+                  </button>
+                  {template.isCustom && (
+                    <button
+                      onClick={() => deleteTemplate(template.id)}
+                      className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Supprimer"
+                    >
+                      <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               ))}
+              {notionTemplates.length > 0 && (
+                <>
+                  <div className="border-t my-4"></div>
+                  <h4 className="font-medium mb-2">Templates Notion</h4>
+                  {notionTemplates.map((template: any) => (
+                    <button
+                      key={template.id}
+                      onClick={() => {
+                        setContent(template.content);
+                        setLanguage(template.language);
+                      }}
+                      className="w-full text-left p-2 rounded hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="font-medium text-sm">{template.name}</div>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           </div>
           <div className="flex-1 flex gap-4">
@@ -470,18 +451,63 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
                 placeholder="Le contenu généré apparaîtra ici..."
               />
             </div>
-            <div className="flex-1 border rounded-lg p-4 overflow-auto">
-              {language === 'html' ? (
-                <iframe
-                  srcDoc={preview}
-                  className="w-full h-full border-0"
-                  title="Aperçu HTML"
-                  sandbox="allow-scripts"
-                />
+            <div className="flex-1 flex flex-col gap-4">
+              {isEditing ? (
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-medium mb-2">Nouveau template</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Nom</label>
+                      <input
+                        type="text"
+                        value={editingTemplate?.name || ''}
+                        onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Description</label>
+                      <input
+                        type="text"
+                        value={editingTemplate?.description || ''}
+                        onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, description: e.target.value } : null)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setIsEditing(false);
+                          setEditingTemplate(null);
+                        }}
+                        className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={saveAsTemplate}
+                        className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        Sauvegarder
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <pre className="font-mono text-sm whitespace-pre-wrap">
-                  {preview}
-                </pre>
+                <div className="border rounded-lg p-4 overflow-auto flex-1">
+                  {language === 'html' ? (
+                    <iframe
+                      srcDoc={preview}
+                      className="w-full h-full border-0"
+                      title="Aperçu HTML"
+                      sandbox="allow-scripts"
+                    />
+                  ) : (
+                    <pre className="font-mono text-sm whitespace-pre-wrap">
+                      {preview}
+                    </pre>
+                  )}
+                </div>
               )}
             </div>
           </div>
