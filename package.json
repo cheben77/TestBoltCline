@@ -1,0 +1,44 @@
+{
+  "type": "commonjs",
+  "name": "stoaviva",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "init-notion": "ts-node -r dotenv/config src/scripts/init-notion-databases.ts dotenv_config_path=.env.local",
+    "add-test-data": "ts-node -r dotenv/config src/scripts/add-test-data.ts dotenv_config_path=.env.local",
+    "list-databases": "ts-node -r dotenv/config src/scripts/list-databases.ts dotenv_config_path=.env.local"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.26.0",
+    "@notionhq/client": "^2.2.14",
+    "dotenv": "^16.3.1",
+    "next": "14.0.4",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-speech-recognition": "^3.10.0",
+    "tailwindcss": "^3.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-speech-recognition": "^3.9.6",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.4",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "postcss": "^8",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  }
+}
