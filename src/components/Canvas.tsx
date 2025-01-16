@@ -138,7 +138,7 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full h-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none"
+            className="w-full h-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none text-gray-900"
             placeholder="Le contenu généré apparaîtra ici..."
           />
         </div>
