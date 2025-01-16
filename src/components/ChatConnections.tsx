@@ -11,12 +11,18 @@ const Connection: React.FC<ConnectionProps> = ({ name, icon, isConnected, onClic
   <button
     onClick={onClick}
     className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-      isConnected ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+      isConnected ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
     }`}
     title={`${isConnected ? 'Connecté' : 'Non connecté'} à ${name}`}
   >
     {icon}
     <span className="text-sm font-medium">{name}</span>
+    <div className={`flex items-center gap-1 ml-1 ${isConnected ? 'text-green-600' : 'text-gray-500'}`}>
+      <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-600' : 'bg-gray-400'}`} />
+      <span className="text-xs">
+        {isConnected ? 'Connecté' : 'Non connecté'}
+      </span>
+    </div>
   </button>
 );
 
@@ -72,6 +78,7 @@ const ChatConnections: React.FC<ChatConnectionsProps> = ({ connections }) => {
 
   return (
     <div className="flex flex-wrap gap-2 p-4 bg-white border-b">
+      <h2 className="w-full text-sm font-medium text-gray-700 mb-2">État des connexions</h2>
       {connections.map((connection) => (
         <Connection
           key={connection.name}
