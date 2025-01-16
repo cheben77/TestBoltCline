@@ -567,29 +567,26 @@ export default function Chatbot(): React.ReactElement {
             <div className="mb-4 flex flex-wrap gap-4">
               <div className="flex flex-col gap-2 w-full">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                    {modelCategories.find(cat => cat.id === selectedCategory)?.icon}
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => {
-                        const newCategory = e.target.value;
-                        setSelectedCategory(newCategory);
-                        // Sélectionner le premier modèle disponible de la catégorie
-                        const category = modelCategories.find(cat => cat.id === newCategory);
-                        if (category) {
-                          const availableModels = category.models.filter(model => models.includes(model));
-                          if (availableModels.length > 0) {
-                            setSelectedModel(availableModels[0]);
-                          }
+                  {modelCategories.map(category => (
+                    <button
+                      key={category.id}
+                      onClick={() => {
+                        setSelectedCategory(category.id);
+                        const availableModels = category.models.filter(model => models.includes(model));
+                        if (availableModels.length > 0) {
+                          setSelectedModel(availableModels[0]);
                         }
                       }}
-                      className="border-none bg-transparent text-gray-800 pr-8"
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                        category.id === selectedCategory 
+                          ? 'bg-green-600 text-white' 
+                          : 'bg-gray-50 text-gray-800 hover:bg-green-50'
+                      }`}
                     >
-                      {modelCategories.map(category => (
-                        <option key={category.id} value={category.id}>{category.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                      {category.icon}
+                      <span>{category.name}</span>
+                    </button>
+                  ))}
                   <select
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
