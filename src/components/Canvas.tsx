@@ -10,6 +10,7 @@ interface CanvasProps {
 export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
   const [content, setContent] = useState(initialContent);
   const [language, setLanguage] = useState('text');
+  const [preview, setPreview] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -17,7 +18,41 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
       textareaRef.current.focus();
       textareaRef.current.setSelectionRange(content.length, content.length);
     }
+    updatePreview(content);
   }, [content]);
+
+  const updatePreview = (code: string) => {
+    try {
+      switch (language) {
+        case 'html':
+          setPreview(code);
+          break;
+        case 'javascript':
+        case 'typescript':
+          try {
+            // Évalue le code JS/TS et affiche le résultat
+            const result = new Function(`return ${code}`)();
+            setPreview(JSON.stringify(result, null, 2));
+          } catch (error) {
+            setPreview(`Error: ${error instanceof Error ? error.message : String(error)}`);
+          }
+          break;
+        case 'json':
+          // Formate et valide le JSON
+          const parsed = JSON.parse(code);
+          setPreview(JSON.stringify(parsed, null, 2));
+          break;
+        case 'markdown':
+          // Pour le markdown, on pourrait ajouter une lib de rendu markdown
+          setPreview(code);
+          break;
+        default:
+          setPreview(code);
+      }
+    } catch (error) {
+      setPreview(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
@@ -52,7 +87,7 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
       const data = await response.json();
       console.log('Ouvert dans VSCode:', data);
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur:', error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -63,12 +98,10 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
           setContent(JSON.stringify(JSON.parse(content), null, 2));
           break;
         case 'html':
-          // Format HTML using basic indentation
           setContent(content.replace(/></g, '>\n<').split('\n').map(line => line.trim()).join('\n'));
           break;
         case 'javascript':
         case 'typescript':
-          // Basic JS/TS formatting
           setContent(content
             .replace(/[{]/g, '{\n')
             .replace(/[}]/g, '\n}')
@@ -80,14 +113,18 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
           );
           break;
       }
-    } catch (e) {
-      console.error('Erreur de formatage:', e);
+    } catch (error) {
+      console.error('Erreur de formatage:', error instanceof Error ? error.message : String(error));
     }
+  };
+
+  const handleRun = () => {
+    updatePreview(content);
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-[800px] h-[600px] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-[90vw] h-[90vh] flex flex-col">
         <div className="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h3 className="text-lg font-semibold">Canevas de génération</h3>
@@ -132,6 +169,16 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zm0 5h16"/>
+                </svg>
+              </button>
+              <button
+                onClick={handleRun}
+                className="p-2 hover:bg-green-700 rounded-lg transition-colors"
+                title="Exécuter"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
               </button>
             </div>
@@ -206,14 +253,30 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
             </button>
           </div>
         </div>
-        <div className="flex-1 p-4">
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="w-full h-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none text-gray-900"
-            placeholder="Le contenu généré apparaîtra ici..."
-          />
+        <div className="flex-1 p-4 flex gap-4">
+          <div className="flex-1">
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full h-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none text-gray-900"
+              placeholder="Le contenu généré apparaîtra ici..."
+            />
+          </div>
+          <div className="flex-1 border rounded-lg p-4 overflow-auto">
+            {language === 'html' ? (
+              <iframe
+                srcDoc={preview}
+                className="w-full h-full border-0"
+                title="Aperçu HTML"
+                sandbox="allow-scripts"
+              />
+            ) : (
+              <pre className="font-mono text-sm whitespace-pre-wrap">
+                {preview}
+              </pre>
+            )}
+          </div>
         </div>
       </div>
     </div>
