@@ -10,7 +10,12 @@ src/features/chatbot/
 │   └── route.ts           # API route pour les requêtes du chatbot
 ├── components/
 │   ├── Chatbot.tsx       # Composant principal du chatbot
-│   └── Chatbot.test.tsx  # Tests du composant
+│   ├── Chatbot.test.tsx  # Tests du composant principal
+│   ├── ChatError.tsx     # Composant d'affichage des erreurs
+│   └── ChatError.test.tsx # Tests du composant d'erreur
+├── hooks/
+│   ├── useChatbot.ts     # Hook principal de gestion du chat
+│   └── useChatError.ts   # Hook de gestion des erreurs
 ├── services/
 │   └── ollama.ts         # Service d'intégration avec Ollama
 └── index.ts              # Point d'entrée du module
@@ -24,17 +29,28 @@ src/features/chatbot/
 - **Mode Notion**: Interaction avec la base de données Notion
 - **Mode Fichier**: Analyse et discussion autour de fichiers uploadés
 
-### 2. Intégration Notion
+### 2. Gestion des Erreurs
+
+Le module intègre un système robuste de gestion des erreurs :
+
+#### Types d'Erreurs
+- `network`: Problèmes de connexion
+- `notion`: Erreurs liées à la base de données
+- `ollama`: Erreurs de génération de réponses
+- `file`: Problèmes de traitement de fichiers
+- `validation`: Erreurs de validation des données
+
+#### Composants et Hooks
+- `useChatError`: Hook personnalisé pour la gestion centralisée des erreurs
+- `ChatError`: Composant réutilisable pour l'affichage des erreurs
+- Historique des erreurs avec possibilité de retry
+- Messages d'erreur contextuels et détails techniques
+
+### 3. Intégration Notion
 
 - Interrogation des produits et services
 - Personnalisation des bases de données
 - Contexte enrichi pour les réponses
-
-### 3. Outils Natifs
-
-- Chat simple
-- Personnalisation de base de données
-- Intégration avec le canevas pour la visualisation
 
 ## Configuration
 
@@ -44,12 +60,6 @@ src/features/chatbot/
 OLLAMA_API_ENDPOINT=http://127.0.0.1:11434/api
 NOTION_API_KEY=your_notion_api_key
 ```
-
-### Modèles Ollama Supportés
-
-- codestral:latest (par défaut)
-- llama3.1:8b
-- Autres modèles compatibles Ollama
 
 ## Utilisation
 
@@ -67,6 +77,30 @@ export default function Page() {
 }
 ```
 
+### Gestion des Erreurs
+
+```tsx
+import { useChatError, ChatError } from '@/features/chatbot';
+
+function MyComponent() {
+  const { error, handleError, clearError } = useChatError({
+    maxHistoryLength: 10,
+    onError: (error) => console.error(error)
+  });
+
+  return error ? (
+    <ChatError
+      error={error}
+      onRetry={() => {
+        // Logique de retry
+        clearError();
+      }}
+      onDismiss={clearError}
+    />
+  ) : null;
+}
+```
+
 ### Personnalisation
 
 Le chatbot peut être personnalisé via les props suivantes :
@@ -79,36 +113,7 @@ interface ChatbotProps {
     primaryColor?: string;
     textColor?: string;
   };
-}
-```
-
-## API
-
-### Route POST /api/chat
-
-Endpoint principal pour les interactions avec le chatbot.
-
-#### Requête
-
-```json
-{
-  "message": "string",
-  "model": "string",
-  "mode": "simple" | "notion" | "file",
-  "context": {
-    "filename": "string",
-    "content": "string",
-    "type": "string"
-  }
-}
-```
-
-#### Réponse
-
-```json
-{
-  "response": "string",
-  "error": "string"
+  onError?: (error: ChatError) => void;
 }
 ```
 
@@ -120,41 +125,53 @@ Les tests sont écrits avec Jest et Testing Library. Pour exécuter les tests :
 npm test src/features/chatbot
 ```
 
-## Développement
+### Couverture des Tests
 
-### Ajout d'un Nouveau Mode
-
-1. Ajouter le type dans `components/Chatbot.tsx`
-2. Implémenter la logique dans le service approprié
-3. Mettre à jour l'interface utilisateur
-4. Ajouter les tests correspondants
-
-### Intégration d'un Nouveau Modèle
-
-1. Ajouter le modèle dans le service Ollama
-2. Mettre à jour la liste des modèles supportés
-3. Tester les performances et la compatibilité
+- Tests unitaires pour les composants
+- Tests d'intégration pour les hooks
+- Tests de gestion d'erreurs
+- Tests d'accessibilité
 
 ## Bonnes Pratiques
 
-1. Toujours utiliser le système de typage TypeScript
-2. Maintenir une couverture de tests complète
-3. Documenter les changements majeurs
-4. Suivre les conventions de commit (feat, fix, docs, etc.)
+1. Gestion des Erreurs
+   - Utiliser le hook `useChatError` pour la gestion centralisée
+   - Fournir des messages d'erreur clairs et des solutions
+   - Implémenter des mécanismes de retry quand approprié
+
+2. Accessibilité
+   - Utilisation appropriée des rôles ARIA
+   - Messages d'erreur clairs et lisibles
+   - Support du clavier
+
+3. Performance
+   - Mise en cache des réponses fréquentes
+   - Chargement optimisé des modèles
+   - Gestion efficace de l'état
 
 ## Dépannage
 
 ### Problèmes Courants
 
 1. **Erreur de connexion Ollama**
-   - Vérifier que le service Ollama est en cours d'exécution
+   - Vérifier que le service est en cours d'exécution
    - Vérifier l'URL de l'endpoint
+   - Consulter les logs pour plus de détails
 
 2. **Erreur de connexion Notion**
    - Vérifier la validité de la clé API
    - Vérifier les permissions de la base de données
+   - Consulter l'historique des erreurs
 
 3. **Problèmes de Performance**
    - Réduire la taille du contexte
    - Utiliser un modèle plus léger
-   - Mettre en cache les réponses fréquentes
+   - Vérifier la mémoire cache
+
+## Contribution
+
+1. Fork le projet
+2. Créer une branche pour votre fonctionnalité
+3. Ajouter des tests pour les nouvelles fonctionnalités
+4. Mettre à jour la documentation
+5. Soumettre une Pull Request
