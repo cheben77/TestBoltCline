@@ -167,7 +167,24 @@ export default function Chatbot(): React.ReactElement {
             </svg>
           ),
           description: 'Chat général sans contexte spécifique',
-          action: () => {}
+          action: () => {
+            setMode('simple');
+            setInput('');
+          }
+        },
+        {
+          id: 'file',
+          name: 'Analyser Fichier',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+            </svg>
+          ),
+          description: 'Analyser des fichiers (texte, image, audio)',
+          action: () => {
+            setMode('file');
+            setInput('');
+          }
         },
         {
           id: 'database',
