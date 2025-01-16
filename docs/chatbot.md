@@ -1,154 +1,64 @@
-# Documentation du Composant Chatbot
+# Module Chatbot
 
-## Description
-Le Chatbot est un composant interactif qui permet aux utilisateurs de communiquer avec l'assistant StoaViva. Il intègre des fonctionnalités avancées de gestion des bases de données Notion et d'interaction avec les modèles Ollama.
+Le module chatbot est une fonctionnalité clé de StoaViva qui permet aux utilisateurs d'interagir avec l'application via une interface conversationnelle intelligente.
+
+## Structure du Module
+
+```
+src/features/chatbot/
+├── api/
+│   └── route.ts           # API route pour les requêtes du chatbot
+├── components/
+│   ├── Chatbot.tsx       # Composant principal du chatbot
+│   └── Chatbot.test.tsx  # Tests du composant
+├── services/
+│   └── ollama.ts         # Service d'intégration avec Ollama
+└── index.ts              # Point d'entrée du module
+```
 
 ## Fonctionnalités
 
-### 1. Interface Utilisateur
-- Chat flottant avec bouton de toggle
-- Indicateur de statut Notion
-- Sélecteur de modèle Ollama avec persistance du choix
-- Barre d'outils avec actions rapides
-- Zone de messages avec support pour texte, fichiers et images
-- Barre de saisie avec bouton d'envoi
+### 1. Modes de Conversation
 
-### 2. Gestion des Modèles Ollama
+- **Mode Simple**: Chat général sans contexte spécifique
+- **Mode Notion**: Interaction avec la base de données Notion
+- **Mode Fichier**: Analyse et discussion autour de fichiers uploadés
 
-#### Sélection du Modèle
-Le chatbot permet de choisir parmi différents modèles Ollama disponibles :
-```typescript
-// Récupération des modèles disponibles
-const models = await listModels();
-// ["llama3.1:8b", "codestral:latest", "mistral:7b", ...]
+### 2. Intégration Notion
+
+- Interrogation des produits et services
+- Personnalisation des bases de données
+- Contexte enrichi pour les réponses
+
+### 3. Outils Natifs
+
+- Chat simple
+- Personnalisation de base de données
+- Intégration avec le canevas pour la visualisation
+
+## Configuration
+
+### Variables d'Environnement
+
+```env
+OLLAMA_API_ENDPOINT=http://127.0.0.1:11434/api
+NOTION_API_KEY=your_notion_api_key
 ```
 
-#### Configuration
-- Modèle par défaut configurable via `DEFAULT_OLLAMA_MODEL`
-- Température et nombre de tokens configurables
-- Logs détaillés des changements de modèle
-- Persistance du choix de modèle entre les sessions
+### Modèles Ollama Supportés
 
-#### Suivi des Modèles
-Le système trace l'utilisation des modèles :
-```
-Configuration Ollama: {
-  endpoint: "http://127.0.0.1:11434/api",
-  modelActuel: "codestral:latest",
-  temperature: 0.7,
-  maxTokens: 2048
-}
-Changement de modèle : codestral:latest -> mistral:7b
-```
-
-#### Exemple d'utilisation
-```typescript
-// Changer de modèle
-setSelectedModel('mistral:7b');
-
-// Récupérer les modèles disponibles
-const availableModels = await fetch('/api/ollama/models');
-
-### 3. Modes de Chat
-
-#### Chat Simple
-- Réponses générales sans contexte spécifique
-- Utilise le modèle Ollama sélectionné
-- Idéal pour les questions générales
-
-#### Chat Notion
-- Réponses basées sur les données Notion
-- Accès aux produits, services, calendrier, etc.
-- Parfait pour les informations internes
-
-#### Chat Fichier
-- Analyse de documents texte et PDF
-- Extraction d'informations des images
-- Permet de poser des questions sur le contenu
-
-### 4. Gestion des Fichiers et Images
-
-#### Formats Supportés
-- Documents : .txt, .pdf, .doc, .docx
-- Images : .jpg, .jpeg, .png, .gif
-
-#### Fonctionnalités
-- Téléversement avec barre de progression
-- Analyse automatique du contenu
-- Extraction d'informations clés
-- Questions/réponses sur le document
-
-#### Exemple d'Utilisation
-```typescript
-// Téléverser un fichier
-const file = new File(['content'], 'document.pdf', { type: 'application/pdf' });
-await handleFileUpload(file);
-
-// Téléverser une image
-const image = new File(['content'], 'image.png', { type: 'image/png' });
-await handleFileUpload(image);
-```
-
-### 5. Commandes Notion
-
-#### Gestion des Bases de Données
-```
-notion databases                    # Liste toutes les bases de données
-notion databases schema <id>        # Affiche le schéma d'une base
-notion create database <id> <titre> # Crée une nouvelle base
-notion add property <id> <nom> <type> # Ajoute une propriété
-notion remove property <id> <nom>   # Supprime une propriété
-```
-
-#### Accès aux Données
-```
-notion produits   # Liste des produits
-notion services   # Liste des services
-notion personnes  # Liste des clients
-notion impact     # Impacts écologiques
-notion calendrier # Accès aux événements
-```
-
-#### Gestion du Calendrier
-- Création/modification/suppression d'événements
-- Rappels et notifications
-- Synchronisation avec Notion
-- Filtrage par date et catégorie
-
-#### Exemple d'Utilisation
-```typescript
-// Créer un événement
-await createEvent({
-  title: 'Réunion produit',
-  date: '2024-01-15',
-  duration: 60,
-  participants: ['client@example.com']
-});
-
-// Lister les événements
-const events = await listEvents({
-  startDate: '2024-01-01',
-  endDate: '2024-01-31'
-});
-```
-
-### 3. Types de Propriétés Supportés
-- `title` : Titre (unique par base)
-- `rich_text` : Texte enrichi
-- `number` : Valeur numérique
-- `select` : Sélection unique
-- `multi_select` : Sélection multiple
-- `date` : Date/heure
-- `email` : Email
-- `phone_number` : Téléphone
+- codestral:latest (par défaut)
+- llama3.1:8b
+- Autres modèles compatibles Ollama
 
 ## Utilisation
 
-### Installation
-```tsx
-import Chatbot from '@/components/Chatbot';
+### Import du Composant
 
-function App() {
+```tsx
+import { Chatbot } from '@/features/chatbot';
+
+export default function Page() {
   return (
     <div>
       <Chatbot />
@@ -157,213 +67,94 @@ function App() {
 }
 ```
 
-### Exemples de Commandes
+### Personnalisation
 
-#### Créer une Base de Données
-```
-notion create database abc123 "Catalogue Produits"
-```
-Résultat : Crée une nouvelle base avec les propriétés par défaut (Name, Description)
+Le chatbot peut être personnalisé via les props suivantes :
 
-#### Ajouter des Propriétés
-```
-notion add property abc123 Prix number
-notion add property abc123 Catégorie select
-```
-Résultat : Ajoute des propriétés à la base existante
-
-#### Voir le Schéma
-```
-notion databases schema abc123
-```
-Résultat : Affiche toutes les propriétés de la base
-
-## Tests Unitaires
-
-### Bonnes Pratiques de Test
-1. **Isolation des Tests** : Chaque test doit être indépendant et ne pas dépendre de l'état d'autres tests
-2. **Nommage Clair** : Les noms des tests doivent décrire clairement leur comportement attendu
-3. **Couverture Maximale** : Viser à couvrir tous les cas d'utilisation et edge cases
-4. **Tests Déterministes** : Les tests doivent produire le même résultat à chaque exécution
-5. **Mocking Approprié** : Utiliser des mocks pour les dépendances externes et les appels API
-
-### Patterns de Test
-1. **Arrange-Act-Assert (AAA)** : 
-   - Arrange : Préparer l'environnement de test
-   - Act : Exécuter l'action à tester
-   - Assert : Vérifier le résultat attendu
-
-2. **Given-When-Then** :
-   - Given : Définir l'état initial
-   - When : Décrire l'action
-   - Then : Spécifier le résultat attendu
-
-3. **Test Pyramid** :
-   - Beaucoup de tests unitaires
-   - Moins de tests d'intégration
-   - Encore moins de tests end-to-end
-
-### Outils de Test
-1. **Jest** : Framework de test JavaScript
-   - Assertions puissantes
-   - Mocking intégré
-   - Couverture de code
-
-2. **React Testing Library** : 
-   - Tests centrés sur l'utilisateur
-   - Sélection d'éléments par rôle
-   - Simulation d'interactions utilisateur
-
-3. **MSW (Mock Service Worker)** :
-   - Interception des requêtes HTTP
-   - Simulation d'API
-   - Tests plus réalistes
-
-4. **Cypress** (pour les tests E2E) :
-   - Tests dans un vrai navigateur
-   - Débogage facile
-   - Screenshots et vidéos
-
-```typescript
-describe('Chatbot', () => {
-  it('should process notion database commands', async () => {
-    const { getByPlaceholderText, getByText } = render(<Chatbot />);
-    const input = getByPlaceholderText('Posez votre question...');
-    
-    fireEvent.change(input, { 
-      target: { value: 'notion databases' } 
-    });
-    fireEvent.click(getByText('Envoyer'));
-
-    await waitFor(() => {
-      expect(getByText(/Bases de données disponibles/)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle database creation', async () => {
-    const { getByPlaceholderText, getByText } = render(<Chatbot />);
-    const input = getByPlaceholderText('Posez votre question...');
-    
-    fireEvent.change(input, { 
-      target: { value: 'notion create database abc123 "Test DB"' } 
-    });
-    fireEvent.click(getByText('Envoyer'));
-
-    await waitFor(() => {
-      expect(getByText(/Base de données créée/)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle calendar event creation', async () => {
-    const { getByPlaceholderText, getByText } = render(<Chatbot />);
-    const input = getByPlaceholderText('Posez votre question...');
-    
-    fireEvent.change(input, { 
-      target: { value: 'notion create event "Réunion" "2024-01-15"' } 
-    });
-    fireEvent.click(getByText('Envoyer'));
-
-    await waitFor(() => {
-      expect(getByText(/Événement créé/)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle file upload', async () => {
-    const { getByLabelText, getByText } = render(<Chatbot />);
-    const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
-    
-    fireEvent.change(getByLabelText('Téléverser un fichier'), {
-      target: { files: [file] }
-    });
-
-    await waitFor(() => {
-      expect(getByText(/Fichier téléversé/)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle image analysis', async () => {
-    const { getByLabelText, getByText } = render(<Chatbot />);
-    const image = new File(['test content'], 'test.png', { type: 'image/png' });
-    
-    fireEvent.change(getByLabelText('Téléverser une image'), {
-      target: { files: [image] }
-    });
-
-    await waitFor(() => {
-      expect(getByText(/Analyse d'image terminée/)).toBeInTheDocument();
-    });
-  });
-});
-```
-
-## Gestion des Erreurs
-
-Le composant gère plusieurs types d'erreurs :
-
-1. **Erreurs de Syntaxe**
-   - Format de commande invalide
-   - Paramètres manquants
-   - Types de propriétés non supportés
-
-2. **Erreurs Notion**
-   - Base de données non trouvée
-   - Permissions insuffisantes
-   - Limite d'API dépassée
-
-3. **Erreurs de Validation**
-   - ID de base de données invalide
-   - Nom de propriété déjà utilisé
-   - Type de propriété incompatible
-
-## Bonnes Pratiques
-
-1. **Validation des Entrées**
-   - Vérifier les ID de base de données
-   - Valider les noms de propriétés
-   - Confirmer les types supportés
-
-2. **Gestion du Cache**
-   - Mettre en cache les résultats des requêtes
-   - Invalider le cache après modifications
-   - Limiter les appels API redondants
-
-3. **Feedback Utilisateur**
-   - Messages d'erreur clairs
-   - Confirmation des actions
-   - Indicateurs de chargement
-
-## Personnalisation
-
-Le composant peut être personnalisé via des props :
-
-```typescript
+```tsx
 interface ChatbotProps {
-  defaultModel?: string;      // Modèle Ollama par défaut
-  theme?: 'light' | 'dark';   // Thème visuel
-  position?: 'left' | 'right'; // Position du chat
-  autoOpen?: boolean;         // Ouverture automatique
-  maxHeight?: number;         // Hauteur maximale
+  initialMode?: 'simple' | 'notion' | 'file';
+  defaultModel?: string;
+  theme?: {
+    primaryColor?: string;
+    textColor?: string;
+  };
 }
 ```
 
-## Dépendances
+## API
 
-- `@notionhq/client` : Client API Notion
-- `@modelcontextprotocol/sdk` : SDK MCP pour Ollama
-- `react` : Framework UI
-- `tailwindcss` : Styling
+### Route POST /api/chat
 
-## Limitations Connues
+Endpoint principal pour les interactions avec le chatbot.
 
-1. Une seule base de données peut être créée à la fois
-2. Certains types de propriétés avancés ne sont pas supportés
-3. Les modifications de schéma sont irréversibles
-4. Les bases de données parentes doivent être accessibles
+#### Requête
 
-## Roadmap
+```json
+{
+  "message": "string",
+  "model": "string",
+  "mode": "simple" | "notion" | "file",
+  "context": {
+    "filename": "string",
+    "content": "string",
+    "type": "string"
+  }
+}
+```
 
-- [ ] Support pour plus de types de propriétés
-- [ ] Annulation/rétablissement des modifications
-- [ ] Interface visuelle pour la création de bases
-- [ ] Export/import de schémas
-- [ ] Gestion des relations entre bases
+#### Réponse
+
+```json
+{
+  "response": "string",
+  "error": "string"
+}
+```
+
+## Tests
+
+Les tests sont écrits avec Jest et Testing Library. Pour exécuter les tests :
+
+```bash
+npm test src/features/chatbot
+```
+
+## Développement
+
+### Ajout d'un Nouveau Mode
+
+1. Ajouter le type dans `components/Chatbot.tsx`
+2. Implémenter la logique dans le service approprié
+3. Mettre à jour l'interface utilisateur
+4. Ajouter les tests correspondants
+
+### Intégration d'un Nouveau Modèle
+
+1. Ajouter le modèle dans le service Ollama
+2. Mettre à jour la liste des modèles supportés
+3. Tester les performances et la compatibilité
+
+## Bonnes Pratiques
+
+1. Toujours utiliser le système de typage TypeScript
+2. Maintenir une couverture de tests complète
+3. Documenter les changements majeurs
+4. Suivre les conventions de commit (feat, fix, docs, etc.)
+
+## Dépannage
+
+### Problèmes Courants
+
+1. **Erreur de connexion Ollama**
+   - Vérifier que le service Ollama est en cours d'exécution
+   - Vérifier l'URL de l'endpoint
+
+2. **Erreur de connexion Notion**
+   - Vérifier la validité de la clé API
+   - Vérifier les permissions de la base de données
+
+3. **Problèmes de Performance**
+   - Réduire la taille du contexte
+   - Utiliser un modèle plus léger
+   - Mettre en cache les réponses fréquentes
