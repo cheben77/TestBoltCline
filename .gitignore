@@ -24,6 +24,10 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+.env.development
+.env.test
+.env.production
 
 # vercel
 .vercel
@@ -38,3 +42,18 @@ next-env.d.ts
 
 # Uploads
 /public/uploads/
+
+# Notion
+notion-setup.js
+.notion-token
+notion-credentials.json
+
+# Ollama
+.ollama-config
+ollama-credentials.json
+
+# Secrets and keys
+*.key
+*.pem
+**/secrets/
+**/credentials/
