@@ -7,10 +7,193 @@ interface CanvasProps {
   initialContent?: string;
 }
 
+interface Tool {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  language: string;
+}
+
+const AUTOMATION_TOOLS: Tool[] = [
+  {
+    id: 'notion-sync',
+    name: 'Synchronisation Notion',
+    description: 'Synchronise des données avec une base Notion',
+    language: 'typescript',
+    template: `import { Client } from '@notionhq/client';
+
+const notion = new Client({ auth: process.env.NOTION_TOKEN });
+const databaseId = 'your-database-id';
+
+async function syncData() {
+  try {
+    const response = await notion.databases.query({
+      database_id: databaseId,
+    });
+    
+    // Traitement des données
+    const items = response.results.map(page => ({
+      // Mappez vos champs ici
+    }));
+    
+    return items;
+  } catch (error) {
+    console.error('Erreur:', error);
+    throw error;
+  }
+}`
+  },
+  {
+    id: 'file-processor',
+    name: 'Traitement de fichiers',
+    description: 'Script pour traiter des fichiers en lot',
+    language: 'typescript',
+    template: `import { readdir, readFile, writeFile } from 'fs/promises';
+import { join } from 'path';
+
+async function processFiles(directory: string) {
+  try {
+    const files = await readdir(directory);
+    
+    for (const file of files) {
+      const content = await readFile(join(directory, file), 'utf-8');
+      
+      // Traitement du fichier
+      const processed = content.toUpperCase();
+      
+      await writeFile(join(directory, \`processed_\${file}\`), processed);
+    }
+  } catch (error) {
+    console.error('Erreur:', error);
+    throw error;
+  }
+}`
+  },
+  {
+    id: 'api-integration',
+    name: 'Intégration API',
+    description: 'Template pour intégrer une API externe',
+    language: 'typescript',
+    template: `import axios from 'axios';
+
+interface ApiConfig {
+  baseURL: string;
+  apiKey: string;
+}
+
+class ApiClient {
+  private client;
+  
+  constructor(config: ApiConfig) {
+    this.client = axios.create({
+      baseURL: config.baseURL,
+      headers: {
+        'Authorization': \`Bearer \${config.apiKey}\`,
+      },
+    });
+  }
+  
+  async getData() {
+    try {
+      const response = await this.client.get('/endpoint');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur API:', error);
+      throw error;
+    }
+  }
+}`
+  },
+  {
+    id: 'data-transform',
+    name: 'Transformation de données',
+    description: 'Script de transformation de données',
+    language: 'typescript',
+    template: `interface InputData {
+  // Définissez votre structure d'entrée
+}
+
+interface OutputData {
+  // Définissez votre structure de sortie
+}
+
+function transformData(input: InputData): OutputData {
+  // Logique de transformation
+  return {
+    // Mappez vos champs
+  };
+}
+
+function validateData(data: OutputData): boolean {
+  // Validation des données
+  return true;
+}`
+  },
+  {
+    id: 'automation-workflow',
+    name: 'Workflow d\'automatisation',
+    description: 'Template de workflow complet',
+    language: 'typescript',
+    template: `import { EventEmitter } from 'events';
+
+class AutomationWorkflow extends EventEmitter {
+  private steps: Array<() => Promise<void>> = [];
+  
+  addStep(step: () => Promise<void>) {
+    this.steps.push(step);
+  }
+  
+  async execute() {
+    try {
+      for (const step of this.steps) {
+        this.emit('stepStart');
+        await step();
+        this.emit('stepComplete');
+      }
+      this.emit('workflowComplete');
+    } catch (error) {
+      this.emit('error', error);
+      throw error;
+    }
+  }
+}`
+  },
+  {
+    id: 'cron-job',
+    name: 'Tâche planifiée',
+    description: 'Template pour tâche CRON',
+    language: 'typescript',
+    template: `import cron from 'node-cron';
+
+class ScheduledTask {
+  private schedule: string;
+  private task: () => Promise<void>;
+  
+  constructor(schedule: string, task: () => Promise<void>) {
+    this.schedule = schedule;
+    this.task = task;
+  }
+  
+  start() {
+    cron.schedule(this.schedule, async () => {
+      try {
+        await this.task();
+        console.log('Tâche exécutée avec succès');
+      } catch (error) {
+        console.error('Erreur:', error);
+      }
+    });
+  }
+}`
+  }
+];
+
 export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
   const [content, setContent] = useState(initialContent);
   const [language, setLanguage] = useState('text');
   const [preview, setPreview] = useState('');
+  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -122,9 +305,15 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
     updatePreview(content);
   };
 
+  const handleToolSelect = (tool: Tool) => {
+    setSelectedTool(tool);
+    setLanguage(tool.language);
+    setContent(tool.template);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-[90vw] h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[95vh] flex flex-col">
         <div className="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h3 className="text-lg font-semibold">Canevas de génération</h3>
@@ -254,28 +443,47 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
           </div>
         </div>
         <div className="flex-1 p-4 flex gap-4">
-          <div className="flex-1">
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full h-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none text-gray-900"
-              placeholder="Le contenu généré apparaîtra ici..."
-            />
+          <div className="w-64 border-r pr-4">
+            <h4 className="font-medium mb-2">Outils d'automatisation</h4>
+            <div className="space-y-2">
+              {AUTOMATION_TOOLS.map(tool => (
+                <button
+                  key={tool.id}
+                  onClick={() => handleToolSelect(tool)}
+                  className={`w-full text-left p-2 rounded hover:bg-gray-100 transition-colors ${
+                    selectedTool?.id === tool.id ? 'bg-gray-100' : ''
+                  }`}
+                >
+                  <div className="font-medium text-sm">{tool.name}</div>
+                  <div className="text-xs text-gray-500">{tool.description}</div>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex-1 border rounded-lg p-4 overflow-auto">
-            {language === 'html' ? (
-              <iframe
-                srcDoc={preview}
-                className="w-full h-full border-0"
-                title="Aperçu HTML"
-                sandbox="allow-scripts"
+          <div className="flex-1 flex gap-4">
+            <div className="flex-1">
+              <textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                className="w-full h-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none text-gray-900"
+                placeholder="Le contenu généré apparaîtra ici..."
               />
-            ) : (
-              <pre className="font-mono text-sm whitespace-pre-wrap">
-                {preview}
-              </pre>
-            )}
+            </div>
+            <div className="flex-1 border rounded-lg p-4 overflow-auto">
+              {language === 'html' ? (
+                <iframe
+                  srcDoc={preview}
+                  className="w-full h-full border-0"
+                  title="Aperçu HTML"
+                  sandbox="allow-scripts"
+                />
+              ) : (
+                <pre className="font-mono text-sm whitespace-pre-wrap">
+                  {preview}
+                </pre>
+              )}
+            </div>
           </div>
         </div>
       </div>
