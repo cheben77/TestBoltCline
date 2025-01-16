@@ -1,28 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-export async function POST(request: NextRequest) {
-  try {
-    // TODO: Implémenter l'authentification OAuth2 avec Google
-    // Pour l'instant, simuler une connexion réussie
-    return NextResponse.json({ status: 'connected' });
-  } catch (error) {
-    console.error('Erreur lors de la connexion à Google:', error);
-    return NextResponse.json(
-      { error: 'Erreur lors de la connexion à Google' },
-      { status: 500 }
-    );
-  }
-}
+const execAsync = promisify(exec);
 
-export async function GET(request: NextRequest) {
+export async function POST() {
   try {
-    // TODO: Vérifier le statut de la connexion à Google
-    return NextResponse.json({ status: 'connected' });
+    // Commande pour lancer Chrome sur Windows
+    await execAsync('start chrome');
+    
+    return NextResponse.json({ 
+      status: 'connected',
+      message: 'Google Chrome a été lancé avec succès'
+    });
   } catch (error) {
-    console.error('Erreur lors de la vérification du statut Google:', error);
-    return NextResponse.json(
-      { error: 'Erreur lors de la vérification du statut' },
-      { status: 500 }
-    );
+    console.error('Erreur lors du lancement de Chrome:', error);
+    return NextResponse.json({ 
+      status: 'error',
+      message: 'Erreur lors du lancement de Chrome'
+    }, { status: 500 });
   }
 }

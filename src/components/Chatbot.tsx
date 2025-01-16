@@ -271,9 +271,8 @@ export default function Chatbot(): React.ReactElement {
   const [connections, setConnections] = useState([
     { name: 'Notion', isConnected: false, isLoading: false, onClick: () => handleConnect('notion') },
     { name: 'Steam', isConnected: false, isLoading: false, onClick: () => handleConnect('steam') },
-    { name: 'Google Drive', isConnected: false, isLoading: false, onClick: () => handleConnect('google-drive') },
-    { name: 'Google', isConnected: false, isLoading: false, onClick: () => handleConnect('google') },
-    { name: 'YouTube', isConnected: false, isLoading: false, onClick: () => handleConnect('youtube') }
+    { name: 'VSCode', isConnected: false, isLoading: false, onClick: () => handleConnect('vscode') },
+    { name: 'Google', isConnected: false, isLoading: false, onClick: () => handleConnect('google') }
   ]);
   const [notionStatus, setNotionStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
   const [messages, setMessages] = useState<Message[]>([
