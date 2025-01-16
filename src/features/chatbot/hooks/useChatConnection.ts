@@ -97,7 +97,9 @@ export function useChatConnection() {
   }, []);
 
   return {
-    ...state,
+    ollamaStatus: state.ollamaStatus,
+    notionStatus: state.notionStatus,
+    cudaStatus: state.cudaStatus,
     checkConnections
   };
 }

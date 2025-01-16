@@ -4,7 +4,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { FormEvent, ChangeEvent, ReactNode } from 'react';
 import Canvas from './Canvas';
 import FileUploadProgress from './FileUploadProgress';
+import ChatConnections from './ChatConnections';
 import { notionService } from '@/services/notion';
+import { connectionsService } from '@/services/connections';
 
 // Types
 interface ChatToolCategory {
@@ -141,6 +143,13 @@ export default function Chatbot(): React.ReactElement {
     }
   ];
   const [isOpen, setIsOpen] = useState(false);
+  const [connections, setConnections] = useState([
+    { name: 'Notion', isConnected: false, onClick: () => handleConnect('notion') },
+    { name: 'Steam', isConnected: false, onClick: () => handleConnect('steam') },
+    { name: 'Google Drive', isConnected: false, onClick: () => handleConnect('google-drive') },
+    { name: 'Google', isConnected: false, onClick: () => handleConnect('google') },
+    { name: 'YouTube', isConnected: false, onClick: () => handleConnect('youtube') }
+  ]);
   const [notionStatus, setNotionStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -159,23 +168,58 @@ export default function Chatbot(): React.ReactElement {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
 
+  const handleConnect = async (service: string) => {
+    try {
+      const response = await connectionsService.connect(service);
+      
+      // Mettre à jour l'état des connexions
+      setConnections(prev => prev.map(conn => 
+        conn.name.toLowerCase() === service.toLowerCase()
+          ? { ...conn, isConnected: response.status === 'connected' }
+          : conn
+      ));
+
+      // Mettre à jour le statut de Notion si nécessaire
+      if (service.toLowerCase() === 'notion') {
+        setNotionStatus(response.status);
+      }
+    } catch (error) {
+      console.error(`Erreur lors de la connexion à ${service}:`, error);
+      // Afficher l'erreur à l'utilisateur si nécessaire
+    }
+  };
+
   useEffect(() => {
-    const checkStatus = async () => {
+    const checkStatuses = async () => {
       try {
-        const response = await fetch('/api/notion/status');
-        const data = await response.json();
-        setNotionStatus(data.status);
+        // Récupérer la liste des services à vérifier
+        const serviceNames = connections.map(conn => conn.name);
+        const statuses = await connectionsService.checkAllStatuses(serviceNames);
+        
+        // Mettre à jour l'état des connexions
+        setConnections(prev => prev.map(conn => ({
+          ...conn,
+          isConnected: statuses[conn.name]?.status === 'connected'
+        })));
+
+        // Mettre à jour le statut de Notion
+        const notionStatus = statuses['Notion'];
+        if (notionStatus) {
+          setNotionStatus(notionStatus.status);
+        }
       } catch (error) {
-        console.error('Erreur lors de la vérification du statut Notion:', error);
-        setNotionStatus('disconnected');
+        console.error('Erreur lors de la vérification des statuts:', error);
       }
     };
 
-    const statusInterval = setInterval(checkStatus, 30000);
-    checkStatus();
+    // Vérifier les statuts au chargement
+    checkStatuses();
+
+    // Vérifier les statuts toutes les 5 minutes au lieu de toutes les 30 secondes
+    const statusInterval = setInterval(checkStatuses, 5 * 60 * 1000);
 
     return () => clearInterval(statusInterval);
-  }, []);
+  }, []); // Supprimer la dépendance connections pour éviter les vérifications trop fréquentes
 
   useEffect(() => {
     const loadModels = async () => {
@@ -276,6 +320,7 @@ export default function Chatbot(): React.ReactElement {
 
       {isOpen && (
         <div className="fixed bottom-4 right-4 w-[95vw] md:w-[800px] lg:w-[1000px] h-[90vh] bg-white rounded-lg shadow-xl flex flex-col z-40">
+          <ChatConnections connections={connections} />
           <ChatToolbox
             onToolSelect={(tool) => tool.action()}
             activeMode={mode}

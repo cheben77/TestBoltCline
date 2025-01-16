@@ -6,29 +6,40 @@ describe('useChatConnection', () => {
     global.fetch = jest.fn();
   });
 
-  it('initialise avec tous les services déconnectés', () => {
-    const { result } = renderHook(() => useChatConnection());
-
-    expect(result.current.ollamaStatus).toEqual({
-      isConnected: false,
-      isLoading: false,
-      error: null
-    });
-    expect(result.current.notionStatus).toEqual({
-      isConnected: false,
-      isLoading: false,
-      error: null
-    });
-    expect(result.current.cudaStatus).toEqual({
-      isConnected: false,
-      isLoading: false,
-      error: null
-    });
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('vérifie les connexions au montage', () => {
+  it('initialise avec tous les services déconnectés', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+    const { result } = renderHook(() => useChatConnection());
+
+    // Attendre que le useEffect initial soit exécuté
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    expect(result.current.ollamaStatus.isConnected).toBe(true);
+    expect(result.current.ollamaStatus.isLoading).toBe(false);
+    expect(result.current.ollamaStatus.error).toBe(null);
+
+    expect(result.current.notionStatus.isConnected).toBe(true);
+    expect(result.current.notionStatus.isLoading).toBe(false);
+    expect(result.current.notionStatus.error).toBe(null);
+
+    expect(result.current.cudaStatus.isConnected).toBe(true);
+    expect(result.current.cudaStatus.isLoading).toBe(false);
+    expect(result.current.cudaStatus.error).toBe(null);
+  });
+
+  it('vérifie les connexions au montage', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
     renderHook(() => useChatConnection());
+
+    // Attendre que tous les appels fetch soient effectués
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
 
     expect(global.fetch).toHaveBeenCalledWith('/api/chat/connect/ollama');
     expect(global.fetch).toHaveBeenCalledWith('/api/chat/connect/notion');
@@ -90,14 +101,17 @@ describe('useChatConnection', () => {
 
     const { result } = renderHook(() => useChatConnection());
 
-    act(() => {
-      result.current.checkConnections();
+    // Attendre que le useEffect initial soit exécuté
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
     });
 
-    expect(result.current.ollamaStatus.isLoading).toBe(true);
-
+    // Lancer la vérification manuelle
     await act(async () => {
+      const checkPromise = result.current.checkConnections();
+      expect(result.current.ollamaStatus.isLoading).toBe(true);
       resolveOllama!({ ok: true });
+      await checkPromise;
     });
 
     expect(result.current.ollamaStatus.isLoading).toBe(false);

@@ -1,7 +1,7 @@
 import { Client } from '@notionhq/client';
 import { mockEcologicalImpact, mockProducts, mockPersons, mockServices } from '@/data/mockData';
 
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = true; // Force l'utilisation des données mockées
 
 interface Person {
   id: string;

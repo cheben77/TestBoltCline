@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatError } from './ChatError';
 import { useChatError } from '../hooks/useChatError';
+import { useChatConnection } from '../hooks/useChatConnection';
 
 // Mock des hooks
 jest.mock('../hooks/useChatError');
@@ -16,6 +17,23 @@ describe('ChatError', () => {
     jest.clearAllMocks();
     (useChatError as jest.Mock).mockReturnValue({
       clearError: mockClearError
+    });
+    (useChatConnection as jest.Mock).mockReturnValue({
+      ollamaStatus: {
+        isConnected: false,
+        isLoading: false,
+        error: null
+      },
+      notionStatus: {
+        isConnected: false,
+        isLoading: false,
+        error: null
+      },
+      cudaStatus: {
+        isConnected: false,
+        isLoading: false,
+        error: null
+      }
     });
   });
 

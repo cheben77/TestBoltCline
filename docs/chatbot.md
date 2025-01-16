@@ -1,19 +1,58 @@
 # Documentation du Composant Chatbot
 
 ## Description
-Le Chatbot est un composant interactif qui permet aux utilisateurs de communiquer avec l'assistant StoaViva. Il intègre des fonctionnalités avancées de gestion des bases de données Notion et d'interaction avec les modèles Ollama.
+Le Chatbot est un composant interactif qui permet aux utilisateurs de communiquer avec l'assistant StoaViva. Il intègre des fonctionnalités avancées de gestion des bases de données Notion et d'interaction avec les modèles Ollama, ainsi que des connexions à divers services externes.
 
 ## Fonctionnalités
 
 ### 1. Interface Utilisateur
 - Chat flottant avec bouton de toggle
-- Indicateur de statut Notion
+- Bannière de connexions aux services externes
+- Indicateurs de statut pour chaque service
 - Sélecteur de modèle Ollama avec persistance du choix
 - Barre d'outils avec actions rapides
 - Zone de messages avec support pour texte, fichiers et images
 - Barre de saisie avec bouton d'envoi
 
-### 2. Gestion des Modèles Ollama
+### 2. Gestion des Connexions
+
+#### Services Supportés
+- Notion : Gestion des bases de données et du contenu
+- Steam : Intégration avec la plateforme de jeux
+- Google Drive : Gestion des fichiers et documents
+- Google : Services Google généraux
+- YouTube : Intégration vidéo
+
+#### État des Connexions
+```typescript
+interface ConnectionStatus {
+  status: 'connected' | 'disconnected';
+  error?: string;
+}
+
+// Exemple d'utilisation
+const status = await connectionsService.checkStatus('notion');
+if (status.status === 'connected') {
+  // Service connecté
+} else {
+  console.error(status.error);
+}
+```
+
+#### Gestion des Connexions
+```typescript
+// Connecter un service
+await connectionsService.connect('notion');
+
+// Vérifier tous les statuts
+const statuses = await connectionsService.checkAllStatuses([
+  'notion',
+  'google-drive',
+  'steam'
+]);
+```
+
+### 3. Gestion des Modèles Ollama
 
 #### Sélection du Modèle
 Le chatbot permet de choisir parmi différents modèles Ollama disponibles :
@@ -41,15 +80,7 @@ Configuration Ollama: {
 Changement de modèle : codestral:latest -> mistral:7b
 ```
 
-#### Exemple d'utilisation
-```typescript
-// Changer de modèle
-setSelectedModel('mistral:7b');
-
-// Récupérer les modèles disponibles
-const availableModels = await fetch('/api/ollama/models');
-
-### 3. Modes de Chat
+### 4. Modes de Chat
 
 #### Chat Simple
 - Réponses générales sans contexte spécifique
@@ -66,7 +97,7 @@ const availableModels = await fetch('/api/ollama/models');
 - Extraction d'informations des images
 - Permet de poser des questions sur le contenu
 
-### 4. Gestion des Fichiers et Images
+### 5. Gestion des Fichiers et Images
 
 #### Formats Supportés
 - Documents : .txt, .pdf, .doc, .docx
@@ -78,219 +109,58 @@ const availableModels = await fetch('/api/ollama/models');
 - Extraction d'informations clés
 - Questions/réponses sur le document
 
-#### Exemple d'Utilisation
-```typescript
-// Téléverser un fichier
-const file = new File(['content'], 'document.pdf', { type: 'application/pdf' });
-await handleFileUpload(file);
-
-// Téléverser une image
-const image = new File(['content'], 'image.png', { type: 'image/png' });
-await handleFileUpload(image);
-```
-
-### 5. Commandes Notion
-
-#### Gestion des Bases de Données
-```
-notion databases                    # Liste toutes les bases de données
-notion databases schema <id>        # Affiche le schéma d'une base
-notion create database <id> <titre> # Crée une nouvelle base
-notion add property <id> <nom> <type> # Ajoute une propriété
-notion remove property <id> <nom>   # Supprime une propriété
-```
-
-#### Accès aux Données
-```
-notion produits   # Liste des produits
-notion services   # Liste des services
-notion personnes  # Liste des clients
-notion impact     # Impacts écologiques
-notion calendrier # Accès aux événements
-```
-
-#### Gestion du Calendrier
-- Création/modification/suppression d'événements
-- Rappels et notifications
-- Synchronisation avec Notion
-- Filtrage par date et catégorie
-
-#### Exemple d'Utilisation
-```typescript
-// Créer un événement
-await createEvent({
-  title: 'Réunion produit',
-  date: '2024-01-15',
-  duration: 60,
-  participants: ['client@example.com']
-});
-
-// Lister les événements
-const events = await listEvents({
-  startDate: '2024-01-01',
-  endDate: '2024-01-31'
-});
-```
-
-### 3. Types de Propriétés Supportés
-- `title` : Titre (unique par base)
-- `rich_text` : Texte enrichi
-- `number` : Valeur numérique
-- `select` : Sélection unique
-- `multi_select` : Sélection multiple
-- `date` : Date/heure
-- `email` : Email
-- `phone_number` : Téléphone
-
-## Utilisation
-
-### Installation
-```tsx
-import Chatbot from '@/components/Chatbot';
-
-function App() {
-  return (
-    <div>
-      <Chatbot />
-    </div>
-  );
-}
-```
-
-### Exemples de Commandes
-
-#### Créer une Base de Données
-```
-notion create database abc123 "Catalogue Produits"
-```
-Résultat : Crée une nouvelle base avec les propriétés par défaut (Name, Description)
-
-#### Ajouter des Propriétés
-```
-notion add property abc123 Prix number
-notion add property abc123 Catégorie select
-```
-Résultat : Ajoute des propriétés à la base existante
-
-#### Voir le Schéma
-```
-notion databases schema abc123
-```
-Résultat : Affiche toutes les propriétés de la base
-
 ## Tests Unitaires
 
-### Bonnes Pratiques de Test
-1. **Isolation des Tests** : Chaque test doit être indépendant et ne pas dépendre de l'état d'autres tests
-2. **Nommage Clair** : Les noms des tests doivent décrire clairement leur comportement attendu
-3. **Couverture Maximale** : Viser à couvrir tous les cas d'utilisation et edge cases
-4. **Tests Déterministes** : Les tests doivent produire le même résultat à chaque exécution
-5. **Mocking Approprié** : Utiliser des mocks pour les dépendances externes et les appels API
+### Composants Testés
+1. **ChatError**
+   - Affichage des erreurs
+   - Historique des erreurs
+   - Effets visuels
+
+2. **ConnectionStatus**
+   - État des connexions
+   - Mise à jour des statuts
+   - Gestion des erreurs
+
+3. **Hooks**
+   - useChatError
+   - useChatConnection
+   - Gestion d'état
+   - Effets secondaires
 
 ### Patterns de Test
-1. **Arrange-Act-Assert (AAA)** : 
-   - Arrange : Préparer l'environnement de test
-   - Act : Exécuter l'action à tester
-   - Assert : Vérifier le résultat attendu
+1. **Arrange-Act-Assert (AAA)**
+2. **Given-When-Then**
+3. **Test Pyramid**
 
-2. **Given-When-Then** :
-   - Given : Définir l'état initial
-   - When : Décrire l'action
-   - Then : Spécifier le résultat attendu
-
-3. **Test Pyramid** :
-   - Beaucoup de tests unitaires
-   - Moins de tests d'intégration
-   - Encore moins de tests end-to-end
-
-### Outils de Test
-1. **Jest** : Framework de test JavaScript
-   - Assertions puissantes
-   - Mocking intégré
-   - Couverture de code
-
-2. **React Testing Library** : 
-   - Tests centrés sur l'utilisateur
-   - Sélection d'éléments par rôle
-   - Simulation d'interactions utilisateur
-
-3. **MSW (Mock Service Worker)** :
-   - Interception des requêtes HTTP
-   - Simulation d'API
-   - Tests plus réalistes
-
-4. **Cypress** (pour les tests E2E) :
-   - Tests dans un vrai navigateur
-   - Débogage facile
-   - Screenshots et vidéos
-
+### Exemple de Tests
 ```typescript
-describe('Chatbot', () => {
-  it('should process notion database commands', async () => {
-    const { getByPlaceholderText, getByText } = render(<Chatbot />);
-    const input = getByPlaceholderText('Posez votre question...');
+describe('ConnectionStatus', () => {
+  it('should display correct status for each service', () => {
+    const connections = [
+      { name: 'Notion', isConnected: true },
+      { name: 'Google Drive', isConnected: false }
+    ];
     
-    fireEvent.change(input, { 
-      target: { value: 'notion databases' } 
-    });
-    fireEvent.click(getByText('Envoyer'));
-
-    await waitFor(() => {
-      expect(getByText(/Bases de données disponibles/)).toBeInTheDocument();
-    });
+    const { getByText } = render(
+      <ConnectionStatus connections={connections} />
+    );
+    
+    expect(getByText('Notion')).toBeInTheDocument();
+    expect(getByText('Google Drive')).toBeInTheDocument();
   });
+});
 
-  it('should handle database creation', async () => {
-    const { getByPlaceholderText, getByText } = render(<Chatbot />);
-    const input = getByPlaceholderText('Posez votre question...');
+describe('useChatConnection', () => {
+  it('should handle connection status changes', async () => {
+    const { result } = renderHook(() => useChatConnection());
     
-    fireEvent.change(input, { 
-      target: { value: 'notion create database abc123 "Test DB"' } 
+    act(() => {
+      result.current.connect('notion');
     });
-    fireEvent.click(getByText('Envoyer'));
-
-    await waitFor(() => {
-      expect(getByText(/Base de données créée/)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle calendar event creation', async () => {
-    const { getByPlaceholderText, getByText } = render(<Chatbot />);
-    const input = getByPlaceholderText('Posez votre question...');
     
-    fireEvent.change(input, { 
-      target: { value: 'notion create event "Réunion" "2024-01-15"' } 
-    });
-    fireEvent.click(getByText('Envoyer'));
-
     await waitFor(() => {
-      expect(getByText(/Événement créé/)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle file upload', async () => {
-    const { getByLabelText, getByText } = render(<Chatbot />);
-    const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
-    
-    fireEvent.change(getByLabelText('Téléverser un fichier'), {
-      target: { files: [file] }
-    });
-
-    await waitFor(() => {
-      expect(getByText(/Fichier téléversé/)).toBeInTheDocument();
-    });
-  });
-
-  it('should handle image analysis', async () => {
-    const { getByLabelText, getByText } = render(<Chatbot />);
-    const image = new File(['test content'], 'test.png', { type: 'image/png' });
-    
-    fireEvent.change(getByLabelText('Téléverser une image'), {
-      target: { files: [image] }
-    });
-
-    await waitFor(() => {
-      expect(getByText(/Analyse d'image terminée/)).toBeInTheDocument();
+      expect(result.current.status).toBe('connected');
     });
   });
 });
@@ -300,37 +170,37 @@ describe('Chatbot', () => {
 
 Le composant gère plusieurs types d'erreurs :
 
-1. **Erreurs de Syntaxe**
-   - Format de commande invalide
-   - Paramètres manquants
-   - Types de propriétés non supportés
+1. **Erreurs de Connexion**
+   - Service non disponible
+   - Authentification échouée
+   - Timeout de connexion
 
-2. **Erreurs Notion**
-   - Base de données non trouvée
-   - Permissions insuffisantes
-   - Limite d'API dépassée
+2. **Erreurs de Service**
+   - API inaccessible
+   - Limite d'utilisation dépassée
+   - Erreurs de permission
 
 3. **Erreurs de Validation**
-   - ID de base de données invalide
-   - Nom de propriété déjà utilisé
-   - Type de propriété incompatible
+   - Paramètres invalides
+   - Format de données incorrect
+   - Configuration manquante
 
 ## Bonnes Pratiques
 
-1. **Validation des Entrées**
-   - Vérifier les ID de base de données
-   - Valider les noms de propriétés
-   - Confirmer les types supportés
+1. **Gestion des Connexions**
+   - Vérification régulière des statuts
+   - Reconnexion automatique
+   - Cache des états de connexion
 
-2. **Gestion du Cache**
-   - Mettre en cache les résultats des requêtes
-   - Invalider le cache après modifications
-   - Limiter les appels API redondants
+2. **Performance**
+   - Limitation des appels API
+   - Mise en cache des réponses
+   - Optimisation des requêtes
 
-3. **Feedback Utilisateur**
-   - Messages d'erreur clairs
-   - Confirmation des actions
-   - Indicateurs de chargement
+3. **Sécurité**
+   - Validation des entrées
+   - Gestion sécurisée des tokens
+   - Protection contre les injections
 
 ## Personnalisation
 
@@ -343,6 +213,8 @@ interface ChatbotProps {
   position?: 'left' | 'right'; // Position du chat
   autoOpen?: boolean;         // Ouverture automatique
   maxHeight?: number;         // Hauteur maximale
+  services?: string[];        // Services à activer
+  refreshInterval?: number;   // Intervalle de rafraîchissement des statuts
 }
 ```
 
@@ -355,15 +227,16 @@ interface ChatbotProps {
 
 ## Limitations Connues
 
-1. Une seule base de données peut être créée à la fois
-2. Certains types de propriétés avancés ne sont pas supportés
-3. Les modifications de schéma sont irréversibles
-4. Les bases de données parentes doivent être accessibles
+1. Certains services nécessitent une configuration manuelle
+2. Les connexions peuvent être instables sur certains réseaux
+3. La reconnexion automatique peut échouer dans certains cas
+4. Certaines fonctionnalités avancées nécessitent des permissions spéciales
 
 ## Roadmap
 
-- [ ] Support pour plus de types de propriétés
-- [ ] Annulation/rétablissement des modifications
-- [ ] Interface visuelle pour la création de bases
-- [ ] Export/import de schémas
-- [ ] Gestion des relations entre bases
+- [ ] Support pour plus de services externes
+- [ ] Interface de configuration visuelle
+- [ ] Amélioration de la gestion des erreurs
+- [ ] Support pour l'authentification OAuth
+- [ ] Synchronisation des données hors ligne
+- [ ] Historique des connexions

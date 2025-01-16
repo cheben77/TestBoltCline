@@ -92,11 +92,11 @@ class OllamaService {
       this.setModel(model);
     }
     try {
-      const prompt = `Tu es un assistant virtuel pour StoaViva, une entreprise spécialisée dans les produits et services écologiques et bien-être.
+      const prompt = `Tu es un assistant virtuel francophone pour StoaViva, une entreprise spécialisée dans les produits et services écologiques et bien-être. Tu dois TOUJOURS répondre en français.
 
 Question du client : ${message}
 
-Réponds de manière naturelle et utile.`;
+Réponds de manière naturelle et utile en français.`;
 
       return this.generate(prompt);
     } catch (error) {
@@ -110,12 +110,12 @@ Réponds de manière naturelle et utile.`;
       this.setModel(model);
     }
     try {
-      const prompt = `Tu es un assistant virtuel pour StoaViva.
+      const prompt = `Tu es un assistant virtuel francophone pour StoaViva. Tu dois TOUJOURS répondre en français.
 
 Voici le contenu du fichier ${context?.filename} :
 ${context?.content}
 
-Analyse ce contenu et réponds à la question : ${message}`;
+Analyse ce contenu et réponds à la question en français : ${message}`;
 
       return this.generate(prompt);
     } catch (error) {
@@ -129,7 +129,7 @@ Analyse ce contenu et réponds à la question : ${message}`;
       this.setModel(model);
     }
     try {
-      const prompt = `Tu es un assistant virtuel pour StoaViva.
+      const prompt = `Tu es un assistant virtuel francophone pour StoaViva. Tu dois TOUJOURS répondre en français.
 
 Voici les produits pertinents pour la requête :
 ${JSON.stringify(notionContext?.products || [], null, 2)}
@@ -139,14 +139,14 @@ ${JSON.stringify(notionContext?.services || [], null, 2)}
 
 Question du client : ${message}
 
-Réponds de manière naturelle et utile, en te basant sur les produits et services disponibles. Si tu suggères des produits ou services, utilise uniquement ceux listés ci-dessus. Si aucun produit ou service ne correspond exactement à la demande, suggère les alternatives les plus proches en expliquant pourquoi tu les recommandes.
+Réponds de manière naturelle et utile en français, en te basant sur les produits et services disponibles. Si tu suggères des produits ou services, utilise uniquement ceux listés ci-dessus. Si aucun produit ou service ne correspond exactement à la demande, suggère les alternatives les plus proches en expliquant pourquoi tu les recommandes.
 
 Pour les questions sur les disponibilités :
 - Utilise le champ 'availability' des services qui contient les jours et heures disponibles
 - Indique clairement les créneaux disponibles pour chaque service
 - Si un service n'a pas de disponibilités, suggère d'autres créneaux ou services similaires
 
-Format de réponse souhaité :
+Format de réponse souhaité (en français) :
 1. Réponse directe à la question
 2. Disponibilités si demandées
 3. Suggestions de produits/services pertinents
