@@ -1,201 +1,70 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import type { FormEvent } from 'react';
-import Canvas from '@/components/Canvas';
+import { useState, useRef, useEffect } from 'react';
+import { useChatbot } from '../hooks/useChatbot';
+import { ChatMessage } from '@/types/ollama';
 
-interface Message {
-  type: 'user' | 'bot' | 'file' | 'image';
-  content: string;
-  filename?: string;
-  path?: string;
-}
+export function Chatbot() {
+  const {
+    messages,
+    isLoading,
+    error,
+    sendMessage,
+    clearChat,
+    clearError
+  } = useChatbot();
 
-interface ChatTool {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
-  description: string;
-  action: () => void;
-}
-
-interface ChatToolCategory {
-  id: string;
-  name: string;
-  enabled: boolean;
-  tools: ChatTool[];
-}
-
-const ChatToolbox: React.FC<{
-  onToolSelect: (tool: ChatTool) => void;
-  activeMode: string;
-  setMode: (mode: 'simple' | 'notion' | 'file') => void;
-  setInput: (input: string) => void;
-  categories: ChatToolCategory[];
-}> = ({ onToolSelect, activeMode, setMode, setInput, categories }) => {
-  return (
-    <div className="flex flex-col gap-4">
-      {categories.map((category) => (
-        <div key={category.id} className="bg-green-700 p-2 rounded-lg">
-          <h4 className="text-sm font-medium mb-2 px-2">{category.name}</h4>
-          <div className="flex flex-wrap gap-2">
-            {category.tools.map((tool) => (
-              <button
-                key={tool.id}
-                onClick={() => onToolSelect(tool)}
-                className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${
-                  tool.id === activeMode ? 'bg-green-600' : 'hover:bg-green-600'
-                }`}
-                title={tool.name}
-              >
-                {tool.icon}
-                <span className="text-sm">{tool.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-export default function Chatbot(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      type: 'bot',
-      content: 'Bonjour ! Je suis l\'assistant StoaViva. Comment puis-je vous aider ?',
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [models, setModels] = useState<string[]>([]);
-  const [selectedModel, setSelectedModel] = useState('codestral:latest');
-  const [showCanvas, setShowCanvas] = useState(false);
-  const [canvasContent, setCanvasContent] = useState('');
-  const [mode, setMode] = useState<'simple' | 'notion' | 'file'>('notion');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
-
-  const categories: ChatToolCategory[] = [
-    {
-      id: 'native',
-      name: 'Outils Natifs',
-      enabled: true,
-      tools: [
-        {
-          id: 'chat',
-          name: 'Chat Simple',
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          ),
-          description: 'Chat général sans contexte spécifique',
-          action: () => {}
-        },
-        {
-          id: 'database',
-          name: 'Personnaliser Base de Données',
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zm0 5h16M8 12v5m4-5v5m4-5v5" />
-            </svg>
-          ),
-          description: 'Personnaliser les bases de données avec Ollama',
-          action: () => {
-            setMode('notion');
-            setInput('Aide-moi à personnaliser ma base de données en utilisant le modèle Ollama. Voici ce que je veux faire : ');
-          }
-        }
-      ]
-    }
-  ];
+  const [inputValue, setInputValue] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const response = await fetch('/api/ollama/models');
-        const data = await response.json();
-        if (response.ok) {
-          setModels(data.models || []);
-          if (data.models?.includes('codestral:latest')) {
-            setSelectedModel('codestral:latest');
-          }
-        }
-      } catch (error) {
-        console.error('Erreur lors de la récupération des modèles:', error);
-      }
-    };
-    loadModels();
-  }, []);
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading) return;
 
-    const userMessage = input.trim();
-    setInput('');
-    setMessages((prev) => [...prev, { type: 'user', content: userMessage }]);
-    setIsLoading(true);
+    const message = inputValue;
+    setInputValue('');
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: userMessage,
-          model: selectedModel,
-          mode: mode,
-          context: mode === 'file' ? {
-            filename: selectedFile?.name,
-            content: fileContent,
-            type: selectedFile?.type
-          } : undefined
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.error) {
-        setMessages((prev) => [
-          ...prev,
-          { type: 'bot', content: `Erreur: ${data.error}` }
-        ]);
-        return;
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { type: 'bot', content: data.response || 'Désolé, je n\'ai pas pu générer une réponse.' }
-      ]);
+      await sendMessage(message, { type: 'notion' });
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: 'bot',
-          content: 'Désolé, une erreur est survenue. Veuillez réessayer.',
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
+      console.error('Erreur lors de l\'envoi du message:', error);
     }
   };
 
+  const renderMessage = (message: ChatMessage) => {
+    const isUser = message.role === 'user';
+    return (
+      <div
+        key={`${message.role}-${message.content}`}
+        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
+      >
+        <div
+          className={`max-w-[80%] rounded-lg p-3 ${
+            isUser
+              ? 'bg-blue-500 text-white rounded-br-none'
+              : 'bg-gray-200 text-gray-800 rounded-bl-none'
+          }`}
+        >
+          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <>
+    <div className="fixed bottom-4 right-4 z-50">
+      {/* Bouton du chatbot */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-4 right-4 w-12 h-12 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-green-700 transition-all z-50 ${
-          isOpen ? 'rotate-45' : ''
-        }`}
         title="Assistant StoaViva"
+        className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-green-600 transition-colors"
       >
         {isOpen ? (
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -208,152 +77,79 @@ export default function Chatbot(): React.ReactElement {
         )}
       </button>
 
+      {/* Fenêtre du chat */}
       {isOpen && (
-        <div className="fixed bottom-4 right-4 w-[95vw] md:w-[800px] lg:w-[1000px] h-[90vh] bg-white rounded-lg shadow-xl flex flex-col z-40">
-          <ChatToolbox
-            onToolSelect={(tool) => tool.action()}
-            activeMode={mode}
-            setMode={setMode}
-            setInput={setInput}
-            categories={categories}
-          />
+        <div className="absolute bottom-16 right-0 w-96 h-[500px] bg-white rounded-lg shadow-xl flex flex-col">
+          {/* En-tête */}
+          <div className="p-4 bg-green-500 text-white rounded-t-lg flex justify-between items-center">
+            <h3 className="font-semibold">Assistant StoaViva</h3>
+            <button
+              onClick={clearChat}
+              className="text-white hover:text-gray-200"
+              title="Effacer la conversation"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4">
-            {messages.map((message, index) => (
-              <div key={index} className={`mb-4 ${message.type === 'user' ? 'text-right' : ''}`}>
-                <div className={`inline-block p-3 rounded-lg ${
-                  message.type === 'user' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-900'
-                }`}>
-                  {message.content}
-                </div>
-              </div>
-            ))}
+            {messages.map(renderMessage)}
             {isLoading && (
-              <div className="text-center">
-                <div className="inline-block p-3 bg-gray-100 rounded-lg">
-                  Chargement...
+              <div className="flex justify-start mb-4">
+                <div className="bg-gray-200 text-gray-800 rounded-lg rounded-bl-none p-3">
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
                 </div>
               </div>
             )}
+            {error && (
+              <div className="flex justify-center mb-4">
+                <div className="bg-red-100 text-red-800 rounded-lg p-3 max-w-[80%]">
+                  <p className="text-sm">{error}</p>
+                  <button
+                    onClick={clearError}
+                    className="text-xs text-red-600 hover:text-red-800 underline mt-1"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 border-t">
-            <div className="mb-4 flex flex-wrap gap-4">
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="p-2 border rounded-lg text-gray-800"
-              >
-                {models.map(model => (
-                  <option key={model} value={model}>{model}</option>
-                ))}
-              </select>
-
-              <select
-                value={mode}
-                onChange={(e) => {
-                  const newMode = e.target.value as 'simple' | 'notion' | 'file';
-                  setMode(newMode);
-                  if (newMode !== 'file') {
-                    setSelectedFile(null);
-                    setFileContent(null);
-                  }
-                }}
-                className="p-2 border rounded-lg text-gray-800"
-              >
-                <option value="simple">Mode Simple</option>
-                <option value="notion">Mode Notion</option>
-                <option value="file">Mode Fichier</option>
-              </select>
-
-              {mode === 'file' && (
-                <div className="w-full">
-                  <input
-                    type="file"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setSelectedFile(file);
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          setFileContent(e.target?.result as string);
-                        };
-                        reader.readAsText(file);
-                      }
-                    }}
-                    className="p-2 border rounded-lg text-gray-800 w-full"
-                    accept=".txt,.md,.json,.csv"
-                  />
-                  {selectedFile && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      Fichier sélectionné : {selectedFile.name}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex gap-2">
+          {/* Formulaire */}
+          <form onSubmit={handleSubmit} className="p-4 border-t">
+            <div className="flex space-x-2">
               <input
                 type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={mode === 'file' ? 
-                  "Posez une question sur le contenu du fichier..." : 
-                  "Posez une question sur nos produits et services..."}
-                className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 text-gray-800 placeholder-gray-600"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Posez une question..."
+                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 disabled={isLoading}
               />
               <button
                 type="submit"
-                disabled={isLoading || (mode === 'file' && !selectedFile)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                disabled={isLoading || !inputValue.trim()}
+                className="bg-green-500 text-white rounded-lg px-4 py-2 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Envoyer
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const lastMessage = messages[messages.length - 1];
-                  if (lastMessage?.type === 'bot') {
-                    setCanvasContent(lastMessage.content);
-                    setShowCanvas(true);
-                  }
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                disabled={!messages.length || messages[messages.length - 1]?.type !== 'bot'}
-              >
-                Ouvrir dans le canevas
-              </button>
-            </form>
-
-            <div className="mt-4 text-sm text-gray-500">
-              <p>Exemples de questions :</p>
-              <ul className="list-disc list-inside">
-                {mode === 'file' ? (
-                  <>
-                    <li>Que contient ce fichier ?</li>
-                    <li>Peux-tu résumer le contenu ?</li>
-                    <li>Quels sont les points principaux ?</li>
-                  </>
-                ) : (
-                  <>
-                    <li>Quels sont vos produits de bien-être ?</li>
-                    <li>Avez-vous des services pour la relaxation ?</li>
-                    <li>Je cherche des produits écologiques pour le quotidien</li>
-                  </>
-                )}
-              </ul>
             </div>
-          </div>
+          </form>
         </div>
       )}
-
-      {showCanvas && (
-        <Canvas
-          onClose={() => setShowCanvas(false)}
-          initialContent={canvasContent}
-        />
-      )}
-    </>
+    </div>
   );
 }
+
+export default Chatbot;

@@ -1,90 +1,67 @@
-import React from 'react';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ChatError as ChatErrorComponent } from './ChatError';
-import { createChatError, type ChatError } from '../hooks/useChatError';
+import { ChatError } from './ChatError';
 
 describe('ChatError', () => {
-  const mockError: ChatError = {
-    name: 'ChatError',
-    message: 'Une erreur est survenue',
-    type: 'network',
-    details: { status: 404 },
-    timestamp: new Date()
-  };
-
-  afterEach(() => {
-    cleanup();
-  });
+  const defaultMessage = 'Une erreur est survenue';
 
   it('affiche le message d\'erreur', () => {
-    render(<ChatErrorComponent error={mockError} />);
-    expect(screen.getByText('Une erreur est survenue')).toBeInTheDocument();
+    render(<ChatError message={defaultMessage} />);
+    expect(screen.getByText(defaultMessage)).toBeInTheDocument();
   });
 
-  it('affiche le type d\'erreur', () => {
-    render(<ChatErrorComponent error={mockError} />);
-    expect(screen.getByText('Erreur network')).toBeInTheDocument();
-  });
-
-  it('affiche les détails techniques quand ils sont disponibles', () => {
-    render(<ChatErrorComponent error={mockError} />);
-    const detailsButton = screen.getByText('Détails techniques');
-    fireEvent.click(detailsButton);
-    expect(screen.getByText(/"status": 404/)).toBeInTheDocument();
-  });
-
-  it('appelle onRetry quand le bouton est cliqué', () => {
-    const onRetry = jest.fn();
-    render(<ChatErrorComponent error={mockError} onRetry={onRetry} />);
-    const retryButton = screen.getByText('Réessayer');
-    fireEvent.click(retryButton);
-    expect(onRetry).toHaveBeenCalled();
-  });
-
-  it('appelle onDismiss quand le bouton est cliqué', () => {
-    const onDismiss = jest.fn();
-    render(<ChatErrorComponent error={mockError} onDismiss={onDismiss} />);
-    const dismissButton = screen.getByText('Fermer');
-    fireEvent.click(dismissButton);
-    expect(onDismiss).toHaveBeenCalled();
-  });
-
-  it('n\'affiche pas les boutons si les handlers ne sont pas fournis', () => {
-    render(<ChatErrorComponent error={mockError} />);
+  it('n\'affiche pas le bouton réessayer si onRetry n\'est pas fourni', () => {
+    render(<ChatError message={defaultMessage} />);
     expect(screen.queryByText('Réessayer')).not.toBeInTheDocument();
+  });
+
+  it('n\'affiche pas le bouton fermer si onDismiss n\'est pas fourni', () => {
+    render(<ChatError message={defaultMessage} />);
     expect(screen.queryByText('Fermer')).not.toBeInTheDocument();
   });
 
-  it('affiche l\'icône appropriée pour chaque type d\'erreur', () => {
-    const errorTypes = ['network', 'notion', 'ollama', 'file', 'unknown'] as const;
+  it('affiche le bouton réessayer si onRetry est fourni', () => {
+    render(<ChatError message={defaultMessage} onRetry={() => {}} />);
+    expect(screen.getByText('Réessayer')).toBeInTheDocument();
+  });
+
+  it('appelle onRetry quand le bouton réessayer est cliqué', () => {
+    const onRetry = jest.fn();
+    render(<ChatError message={defaultMessage} onRetry={onRetry} />);
     
-    errorTypes.forEach(type => {
-      const error: ChatError = {
-        name: 'ChatError',
-        message: 'Test error',
-        type,
-        timestamp: new Date()
-      };
-      
-      const { container } = render(
-        <ChatErrorComponent error={error} />
-      );
-      const svg = container.querySelector('svg');
-      expect(svg).toBeInTheDocument();
-      cleanup();
-    });
+    fireEvent.click(screen.getByText('Réessayer'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('applique la classe personnalisée', () => {
-    const { container } = render(
-      <ChatErrorComponent error={mockError} className="custom-class" />
-    );
-    expect(container.firstChild).toHaveClass('custom-class');
+  it('appelle onDismiss quand le bouton fermer est cliqué', () => {
+    const onDismiss = jest.fn();
+    render(<ChatError message={defaultMessage} onDismiss={onDismiss} />);
+    
+    fireEvent.click(screen.getByText('Fermer'));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('est accessible avec ARIA', () => {
-    render(<ChatErrorComponent error={mockError} />);
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+  it('affiche l\'icône d\'erreur', () => {
+    render(<ChatError message={defaultMessage} />);
+    const icon = screen.getByRole('img', { hidden: true });
+    expect(icon).toBeInTheDocument();
+  });
+
+  it('applique les styles d\'erreur', () => {
+    render(<ChatError message={defaultMessage} />);
+    const container = screen.getByText(defaultMessage).closest('.bg-red-100');
+    expect(container).toHaveClass('bg-red-100', 'text-red-800');
+  });
+
+  it('gère les messages longs correctement', () => {
+    const longMessage = 'a'.repeat(100);
+    render(<ChatError message={longMessage} />);
+    expect(screen.getByText(longMessage)).toBeInTheDocument();
+  });
+
+  it('gère les messages avec des caractères spéciaux', () => {
+    const specialMessage = '!@#$%^&*()_+';
+    render(<ChatError message={specialMessage} />);
+    expect(screen.getByText(specialMessage)).toBeInTheDocument();
   });
 });

@@ -1,96 +1,79 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ollamaService } from '@/features/chatbot';
 import { notionService } from '@/services/notion';
+import { ollamaService } from '@/services/ollama';
+import type { ChatMessage } from '@/types/ollama';
+import type { Product } from '@/types/notion';
+
+interface ChatContext {
+  type: 'notion' | 'file';
+  data?: any;
+}
+
+interface ChatRequestBody {
+  message: string;
+  context?: ChatContext;
+}
 
 export async function POST(request: NextRequest) {
-  console.log('Début de la requête chat');
   try {
-    const body = await request.json();
-    console.log('Corps de la requête:', body);
-
-    if (!body.message) {
-      console.error('Message manquant dans la requête');
-      return NextResponse.json(
-        { error: 'Le message est requis' },
-        { status: 400 }
-      );
-    }
-
+    const body: ChatRequestBody = await request.json();
     const { message, context } = body;
-    console.log('Message reçu:', message);
 
-    // Vérifier la connexion à Notion
-    try {
-      console.log('Tentative de connexion à Notion...');
-      const products = await notionService.getProducts();
-      console.log('Connexion à Notion établie, produits récupérés:', products.length);
-    } catch (error) {
-      console.error('Erreur détaillée de connexion à Notion:', error);
-      console.error('Stack trace Notion:', error instanceof Error ? error.stack : 'No stack trace');
-      return NextResponse.json(
-        { error: 'Impossible de se connecter à la base de données des produits' },
-        { status: 500 }
-      );
-    }
-
-    // Utiliser le service Ollama avec contexte Notion
-    try {
-      console.log('Tentative de génération de réponse avec Ollama...');
-
-      let response;
-      console.log('Mode:', body.mode);
-      switch (body.mode) {
-        case 'notion':
-          const notionContext = await notionService.getContextForQuery(message);
-          response = await ollamaService.chatWithNotion(message, body.model, notionContext);
-          break;
-        case 'file':
-          if (!body.context?.content) {
-            return NextResponse.json(
-              { error: 'Contenu du fichier manquant' },
-              { status: 400 }
-            );
-          }
-          response = await ollamaService.chatWithFile(message, body.model, {
-            filename: body.context.filename,
-            content: body.context.content
-          });
-          break;
-        default:
-          response = await ollamaService.chat(message, body.model);
-      }
-      console.log('Réponse générée avec succès:', response.substring(0, 100) + '...');
-
-      return NextResponse.json({ response });
-    } catch (error) {
-      console.error('Erreur détaillée de génération Ollama:', error);
-      console.error('Stack trace Ollama:', error instanceof Error ? error.stack : 'No stack trace');
-      
-      let errorMessage = 'Erreur lors du traitement de votre demande';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('NOTION_API_KEY')) {
-          errorMessage = 'Erreur de configuration de la base de données';
-        } else if (error.message.includes('ECONNREFUSED')) {
-          errorMessage = 'Le service de chat est temporairement indisponible';
-        } else if (error.message.includes('database_id')) {
-          errorMessage = 'Base de données non trouvée';
-        } else {
-          errorMessage = `Erreur: ${error.message}`;
+    // Enrichir le contexte avec les données de Notion si nécessaire
+    let notionContext = null;
+    if (context?.type === 'notion') {
+      const products = await notionService.getProducts({
+        filter: {
+          or: [
+            { property: 'Name', rich_text: { contains: message } },
+            { property: 'Description', rich_text: { contains: message } }
+          ]
         }
+      });
+
+      if (products.results.length > 0) {
+        notionContext = {
+          type: 'products',
+          data: products.results
+        };
       }
-      
-      return NextResponse.json(
-        { error: errorMessage },
-        { status: 500 }
-      );
     }
+
+    // Construire les messages pour le chat
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: `Tu es un assistant spécialisé dans les produits et services écologiques de StoaViva. 
+        ${notionContext ? `
+        Voici les produits pertinents trouvés :
+        ${notionContext.data.map((product: Product) => `
+          - ${product.name}
+          - Description: ${product.description}
+          - Prix: ${product.price}€
+          - Impact écologique: ${product.eco_impact.score}/10
+          - Bénéfices: ${product.benefits.join(', ')}
+        `).join('\n')}
+        ` : 'Aucun produit spécifique trouvé pour cette requête.'}
+        
+        Réponds de manière concise et précise, en mettant l'accent sur les aspects écologiques et les bénéfices pour l'utilisateur.`
+      },
+      {
+        role: 'user',
+        content: message
+      }
+    ];
+
+    // Générer la réponse avec Ollama
+    const response = await ollamaService.chat({
+      model: process.env.OLLAMA_MODEL || 'codestral:latest',
+      messages
+    });
+
+    return NextResponse.json({ response: response.message.content });
   } catch (error) {
-    console.error('Erreur générale du chatbot:', error);
-    console.error('Stack trace général:', error instanceof Error ? error.stack : 'No stack trace');
-    
+    console.error('Erreur dans le chatbot :', error);
     return NextResponse.json(
-      { error: 'Une erreur inattendue est survenue' },
+      { error: 'Une erreur est survenue lors du traitement de votre message.' },
       { status: 500 }
     );
   }

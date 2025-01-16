@@ -1,533 +1,206 @@
 import { Client } from '@notionhq/client';
-import { mockEcologicalImpact, mockProducts, mockPersons, mockServices } from '@/data/mockData';
+import type { 
+  NotionRawProduct,
+  NotionRawService,
+  NotionRawEvent,
+  NotionRawContext,
+  NotionError,
+  QueryResult,
+  Product
+} from '@/types/notion';
 
-const isDev = process.env.NODE_ENV === 'development';
-
-interface Person {
-  id: string;
-  name: string;
-  age: number;
-  interests: string[];
-  email: string;
-  phone: string;
-  status: string;
-  last_contact: string;
-  notes: string;
+if (!process.env.NOTION_API_KEY) {
+  throw new Error('NOTION_API_KEY is required');
 }
 
-interface Product {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  stock: number;
-  description: string;
-  ecological_impact: string;
-  benefits: string;
-  usage_instructions: string;
-  ingredients: string[];
-  certifications: string[];
-}
+const notion = new Client({
+  auth: process.env.NOTION_API_KEY
+});
 
-interface Service {
-  id: string;
-  name: string;
-  type: string;
-  duration: number;
-  capacity: number;
-  location: string;
-  description: string;
-  benefits: string;
-  price: number;
-  instructor: string;
-  schedule: string;
-  prerequisites: string[];
-  difficulty_level?: 'débutant' | 'intermédiaire' | 'avancé';
-}
+const DATABASES = {
+  products: process.env.NOTION_PRODUCTS_DB_ID,
+  services: process.env.NOTION_SERVICES_DB_ID,
+  events: process.env.NOTION_EVENTS_DB_ID
+};
 
-interface EcoImpact {
-  id: string;
-  metric_name: string;
-  value: number;
-  unit: string;
-  date: string;
-  category: string;
-  description: string;
-  improvement_actions: string;
-}
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start_date: string;
-  end_date: string;
-  location?: string;
-  description?: string;
-  status: 'scheduled' | 'cancelled' | 'completed';
-}
-
-class NotionServiceManager {
-  private static instance: NotionServiceManager;
+export class NotionService {
+  private static instance: NotionService;
   private client: Client;
-  private cache: {
-    products?: Product[];
-    services?: Service[];
-    ecoImpact?: EcoImpact[];
-    persons?: Person[];
-    databases?: Array<{name: string; id: string; properties: any}>;
-    lastUpdate: {
-      products?: Date;
-      services?: Date;
-      ecoImpact?: Date;
-      persons?: Date;
-      databases?: Date;
-    };
-  };
 
   private constructor() {
-    if (!isDev && !process.env.NOTION_API_KEY) {
-      throw new Error('NOTION_API_KEY is not defined');
-    }
-    
-    this.client = new Client({
-      auth: process.env.NOTION_API_KEY,
-    });
-    this.cache = { lastUpdate: {} };
+    this.client = notion;
   }
 
-  public static getInstance(): NotionServiceManager {
-    if (!NotionServiceManager.instance) {
-      NotionServiceManager.instance = new NotionServiceManager();
+  public static getInstance(): NotionService {
+    if (!NotionService.instance) {
+      NotionService.instance = new NotionService();
     }
-    return NotionServiceManager.instance;
+    return NotionService.instance;
   }
 
-  private shouldRefreshCache(key: string): boolean {
-    const lastUpdate = this.cache.lastUpdate[key as keyof typeof this.cache.lastUpdate];
-    if (!lastUpdate) return true;
-    return Date.now() - lastUpdate.getTime() > 5 * 60 * 1000;
-  }
-
-  private validateDatabaseId(databaseId: string | undefined, name: string): string {
-    if (!databaseId) {
-      throw new Error(`${name} is not defined in environment variables`);
-    }
-    return databaseId;
-  }
-
-  async getDatabases(): Promise<Array<{name: string; id: string; properties: any}>> {
-    if (isDev) {
-      return [
-        { 
-          name: "Services", 
-          id: "serv_db",
-          properties: {
-            Name: { type: 'title', title: {} },
-            Duration: { type: 'number', number: { format: 'minute' } },
-            Price: { type: 'number', number: { format: 'euro' } },
-            DifficultyLevel: { 
-              type: 'select',
-              select: {
-                options: [
-                  { name: 'débutant', color: 'green' },
-                  { name: 'intermédiaire', color: 'yellow' },
-                  { name: 'avancé', color: 'red' }
-                ]
-              }
-            }
-          }
-        }
-      ];
-    }
-
+  private async queryDatabase(databaseId: string, query?: any) {
     try {
-      if (this.cache.databases && !this.shouldRefreshCache('databases')) {
-        return this.cache.databases;
-      }
-
-      const response = await this.client.search({
-        filter: {
-          property: 'object',
-          value: 'database'
-        }
-      });
-
-      const databases = response.results.map((db: any) => ({
-        name: db.title[0]?.plain_text || 'Sans titre',
-        id: db.id,
-        properties: db.properties
-      }));
-
-      this.cache.databases = databases;
-      this.cache.lastUpdate.databases = new Date();
-
-      return databases;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des bases de données:', error);
-      throw error;
-    }
-  }
-
-  async getProducts(): Promise<Product[]> {
-    if (isDev) {
-      return mockProducts;
-    }
-
-    try {
-      if (this.cache.products && !this.shouldRefreshCache('products')) {
-        return this.cache.products;
-      }
-
-      const databaseId = this.validateDatabaseId(
-        process.env.NOTION_PRODUCTS_DB_ID,
-        'NOTION_PRODUCTS_DB_ID'
-      );
-
       const response = await this.client.databases.query({
         database_id: databaseId,
+        ...query
       });
-
-      const products = response.results.map((page: any) => ({
-        id: page.id,
-        name: page.properties.Name?.title[0]?.plain_text || '',
-        category: page.properties.Category?.select?.name || '',
-        price: page.properties.Price?.number || 0,
-        stock: page.properties.Stock?.number || 0,
-        description: page.properties.Description?.rich_text[0]?.plain_text || '',
-        ecological_impact: page.properties.EcologicalImpact?.rich_text[0]?.plain_text || '',
-        benefits: page.properties.Benefits?.rich_text[0]?.plain_text || '',
-        usage_instructions: page.properties.UsageInstructions?.rich_text[0]?.plain_text || '',
-        ingredients: (page.properties.Ingredients?.multi_select || []).map((item: any) => item.name),
-        certifications: (page.properties.Certifications?.multi_select || []).map((item: any) => item.name),
-      }));
-
-      this.cache.products = products;
-      this.cache.lastUpdate.products = new Date();
-
-      return products;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des produits:', error);
-      throw error;
-    }
-  }
-
-  async searchProducts(query: string): Promise<Product[]> {
-    const products = await this.getProducts();
-    return products.filter(product => 
-      product.name.toLowerCase().includes(query.toLowerCase()) ||
-      product.description.toLowerCase().includes(query.toLowerCase()) ||
-      product.category.toLowerCase().includes(query.toLowerCase()) ||
-      product.ingredients.some(ing => ing.toLowerCase().includes(query.toLowerCase())) ||
-      product.benefits.toLowerCase().includes(query.toLowerCase())
-    );
-  }
-
-  async getServices(): Promise<Service[]> {
-    if (isDev) {
-      return mockServices;
-    }
-
-    try {
-      if (this.cache.services && !this.shouldRefreshCache('services')) {
-        return this.cache.services;
-      }
-
-      const databaseId = this.validateDatabaseId(
-        process.env.NOTION_SERVICES_DB_ID,
-        'NOTION_SERVICES_DB_ID'
-      );
-
-      const response = await this.client.databases.query({
-        database_id: databaseId,
-      });
-
-      const services = response.results.map((page: any) => ({
-        id: page.id,
-        name: page.properties.Name?.title[0]?.plain_text || '',
-        type: page.properties.Type?.select?.name || '',
-        duration: page.properties.Duration?.number || 0,
-        capacity: page.properties.Capacity?.number || 0,
-        location: page.properties.Location?.rich_text[0]?.plain_text || '',
-        description: page.properties.Description?.rich_text[0]?.plain_text || '',
-        benefits: page.properties.Benefits?.rich_text[0]?.plain_text || '',
-        price: page.properties.Price?.number || 0,
-        instructor: page.properties.Instructor?.rich_text[0]?.plain_text || '',
-        schedule: page.properties.Schedule?.rich_text[0]?.plain_text || '',
-        prerequisites: (page.properties.Prerequisites?.multi_select || []).map((item: any) => item.name),
-        difficulty_level: page.properties.DifficultyLevel?.select?.name
-      }));
-
-      this.cache.services = services;
-      this.cache.lastUpdate.services = new Date();
-
-      return services;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des services:', error);
-      throw error;
-    }
-  }
-
-  async searchServices(query: string): Promise<Service[]> {
-    const services = await this.getServices();
-    return services.filter(service =>
-      service.name.toLowerCase().includes(query.toLowerCase()) ||
-      service.description.toLowerCase().includes(query.toLowerCase()) ||
-      service.type.toLowerCase().includes(query.toLowerCase()) ||
-      service.location.toLowerCase().includes(query.toLowerCase()) ||
-      service.benefits.toLowerCase().includes(query.toLowerCase())
-    );
-  }
-
-  async getCalendarEvents(startDate?: Date, endDate?: Date): Promise<CalendarEvent[]> {
-    if (isDev) {
-      return [
-        {
-          id: 'evt1',
-          title: 'Atelier Bien-être',
-          start_date: '2024-01-20T10:00:00Z',
-          end_date: '2024-01-20T12:00:00Z',
-          location: 'Salle Zen',
-          description: 'Atelier de méditation et relaxation',
-          status: 'scheduled'
-        }
-      ];
-    }
-
-    try {
-      const databaseId = this.validateDatabaseId(
-        process.env.NOTION_CALENDAR_DB_ID,
-        'NOTION_CALENDAR_DB_ID'
-      );
-
-      const filter: any = {
-        and: [
-          {
-            property: 'Date',
-            date: {
-              is_not_empty: true
-            }
-          }
-        ]
-      };
-
-      if (startDate) {
-        filter.and.push({
-          property: 'Date',
-          date: {
-            on_or_after: startDate.toISOString()
-          }
-        });
-      }
-
-      if (endDate) {
-        filter.and.push({
-          property: 'Date',
-          date: {
-            on_or_before: endDate.toISOString()
-          }
-        });
-      }
-
-      const response = await this.client.databases.query({
-        database_id: databaseId,
-        filter: filter,
-        sorts: [
-          {
-            property: 'Date',
-            direction: 'ascending'
-          }
-        ]
-      });
-
-      return response.results.map((page: any) => ({
-        id: page.id,
-        title: page.properties.Name?.title[0]?.plain_text || '',
-        start_date: page.properties.Date?.date?.start || '',
-        end_date: page.properties.Date?.date?.end || page.properties.Date?.date?.start || '',
-        location: page.properties.Location?.rich_text[0]?.plain_text || '',
-        description: page.properties.Description?.rich_text[0]?.plain_text || '',
-        status: page.properties.Status?.select?.name || 'scheduled'
-      }));
-    } catch (error) {
-      console.error('Erreur lors de la récupération des événements:', error);
-      throw error;
-    }
-  }
-
-  async getDatabaseSchema(database_id: string): Promise<any> {
-    if (isDev) {
-      return {
-        properties: {
-          Name: { type: 'title', title: {} },
-          Description: { type: 'rich_text', rich_text: {} }
-        }
-      };
-    }
-
-    try {
-      const response = await this.client.databases.retrieve({
-        database_id: database_id
-      });
-      return {
-        properties: response.properties
-      };
-    } catch (error) {
-      console.error('Erreur lors de la récupération du schéma:', error);
-      throw error;
-    }
-  }
-
-  async updateDatabase(params: {
-    database_id: string;
-    title?: string;
-    properties?: Record<string, any>;
-  }): Promise<any> {
-    if (isDev) {
-      return {
-        id: params.database_id,
-        title: params.title,
-        properties: params.properties
-      };
-    }
-
-    try {
-      const updateParams: any = { database_id: params.database_id };
-      if (params.title) {
-        updateParams.title = [{ type: 'text', text: { content: params.title } }];
-      }
-      if (params.properties) {
-        updateParams.properties = params.properties;
-      }
-
-      const response = await this.client.databases.update(updateParams);
       return response;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour de la base de données:', error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 
-  async addDatabaseProperty(params: {
-    database_id: string;
-    property_name: string;
-    property_config: any;
-  }): Promise<any> {
-    if (isDev) {
-      const services = mockServices;
-      services.forEach((service: Service) => {
-        if (params.property_config.type === 'select') {
-          (service as any)[params.property_name] = params.property_config.select.options[0].name;
-        } else {
-          (service as any)[params.property_name] = null;
-        }
-      });
-      return {
-        id: params.database_id,
-        properties: {
-          [params.property_name]: params.property_config
-        }
-      };
-    }
-
-    try {
-      const currentSchema = await this.getDatabaseSchema(params.database_id);
-      const updatedProperties = {
-        ...currentSchema.properties,
-        [params.property_name]: params.property_config
-      };
-
-      const result = await this.updateDatabase({
-        database_id: params.database_id,
-        properties: updatedProperties
-      });
-
-      // Mettre à jour tous les enregistrements existants avec la nouvelle propriété
-      const pages = await this.client.databases.query({
-        database_id: params.database_id
-      });
-
-      for (const page of pages.results) {
-        const updateData: any = {
-          page_id: page.id,
-          properties: {
-            [params.property_name]: {
-              [params.property_config.type]: params.property_config.type === 'select' ? 
-                { name: params.property_config.select.options[0].name } : 
-                null
-            }
-          }
-        };
-        await this.client.pages.update(updateData);
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Erreur lors de l\'ajout de la propriété:', error);
-      throw error;
-    }
+  private handleError(error: any): NotionError {
+    const notionError = new Error(error.message) as NotionError;
+    notionError.status = error.status;
+    notionError.code = error.code;
+    notionError.requestId = error.requestId;
+    return notionError;
   }
 
-  async testConnection(): Promise<boolean> {
-    try {
-      await this.getDatabases();
-      return true;
-    } catch (error) {
-      console.error('Erreur de connexion à Notion:', error);
-      return false;
-    }
+  private transformPageToProduct(page: any): NotionRawProduct {
+    const properties = page.properties;
+    return {
+      id: page.id,
+      name: properties.Name.title[0]?.plain_text || '',
+      description: properties.Description.rich_text[0]?.plain_text || '',
+      price: properties.Price.number || 0,
+      category: properties.Category.select?.name || '',
+      stock: properties.Stock.number || 0,
+      eco_impact: {
+        score: properties.EcoScore.number || 0,
+        details: properties.EcoDetails.multi_select.map((item: any) => item.name)
+      },
+      certifications: properties.Certifications.multi_select.map((item: any) => item.name),
+      ingredients: properties.Ingredients.multi_select.map((item: any) => item.name),
+      benefits: properties.Benefits.multi_select.map((item: any) => item.name),
+      usage_instructions: properties.Usage.rich_text[0]?.plain_text || '',
+      created_at: page.created_time,
+      updated_at: page.last_edited_time
+    };
   }
 
-  async getContextForQuery(query: string) {
+  private transformPageToService(page: any): NotionRawService {
+    const properties = page.properties;
+    return {
+      id: page.id,
+      name: properties.Name.title[0]?.plain_text || '',
+      description: properties.Description.rich_text[0]?.plain_text || '',
+      duration: properties.Duration.number || 0,
+      price: properties.Price.number || 0,
+      category: properties.Category.select?.name || '',
+      capacity: properties.Capacity.number || 0,
+      instructor: properties.Instructor.rich_text[0]?.plain_text || '',
+      prerequisites: properties.Prerequisites.multi_select.map((item: any) => item.name),
+      benefits: properties.Benefits.multi_select.map((item: any) => item.name),
+      eco_impact: {
+        score: properties.EcoScore.number || 0,
+        details: properties.EcoDetails.multi_select.map((item: any) => item.name)
+      },
+      schedule: {
+        days: properties.Days.multi_select.map((item: any) => item.name),
+        times: properties.Times.multi_select.map((item: any) => item.name)
+      },
+      location: properties.Location.rich_text[0]?.plain_text || '',
+      created_at: page.created_time,
+      updated_at: page.last_edited_time
+    };
+  }
+
+  private transformPageToEvent(page: any): NotionRawEvent {
+    const properties = page.properties;
+    return {
+      id: page.id,
+      title: properties.Title.title[0]?.plain_text || '',
+      description: properties.Description.rich_text[0]?.plain_text || '',
+      start_date: properties.StartDate.date?.start || '',
+      end_date: properties.EndDate.date?.start || '',
+      location: properties.Location.rich_text[0]?.plain_text || '',
+      capacity: properties.Capacity.number || 0,
+      participants: properties.Participants.relation.map((item: any) => ({
+        id: item.id,
+        name: item.name || '',
+        email: item.email || '',
+        status: item.status || 'pending'
+      })),
+      service_id: properties.Service.relation[0]?.id,
+      instructor: properties.Instructor.rich_text[0]?.plain_text,
+      created_at: page.created_time,
+      updated_at: page.last_edited_time
+    };
+  }
+
+  public async getProducts(query?: {
+    filter?: any;
+    sorts?: any[];
+    pageSize?: number;
+    startCursor?: string;
+  }): Promise<QueryResult<Product>> {
     try {
-      const [products, services, events] = await Promise.all([
-        this.searchProducts(query),
-        this.searchServices(query),
-        this.getCalendarEvents(),
-      ]);
-
-      // Si le message concerne la personnalisation de la base de données
-      if (query.toLowerCase().includes('personnaliser') && query.toLowerCase().includes('base de données')) {
-        const databases = await this.getDatabases();
-        return {
-          databases,
-          query
-        };
-      }
-
-      // Ajouter les informations de disponibilité
-      const servicesWithAvailability = services.map((service: Service) => ({
-        ...service,
-        availability: isDev ? [
-          {
-            day: 'Lundi',
-            time: '18h',
-            available: true
-          },
-          {
-            day: 'Mercredi',
-            time: '18h',
-            available: true
-          }
-        ] : events
-          .filter(e => e.title === service.name)
-          .map(e => ({
-            day: new Date(e.start_date).toLocaleDateString('fr-FR', { weekday: 'long' }),
-            time: new Date(e.start_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            available: e.status === 'scheduled'
-          }))
-      }));
+      const response = await this.queryDatabase(DATABASES.products!, {
+        filter: query?.filter,
+        sorts: query?.sorts,
+        page_size: query?.pageSize,
+        start_cursor: query?.startCursor
+      });
 
       return {
-        products,
-        services: servicesWithAvailability,
-        events,
+        results: response.results.map(page => this.transformPageToProduct(page)),
+        next_cursor: response.next_cursor,
+        has_more: response.has_more
+      };
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  public async getContextForQuery(query: string): Promise<NotionRawContext> {
+    try {
+      // Recherche dans les produits
+      const productsResponse = await this.queryDatabase(DATABASES.products!, {
+        filter: {
+          or: [
+            { property: 'Name', rich_text: { contains: query } },
+            { property: 'Description', rich_text: { contains: query } },
+            { property: 'Category', select: { equals: query } }
+          ]
+        }
+      });
+
+      // Recherche dans les services
+      const servicesResponse = await this.queryDatabase(DATABASES.services!, {
+        filter: {
+          or: [
+            { property: 'Name', rich_text: { contains: query } },
+            { property: 'Description', rich_text: { contains: query } },
+            { property: 'Category', select: { equals: query } }
+          ]
+        }
+      });
+
+      // Recherche dans les événements
+      const eventsResponse = await this.queryDatabase(DATABASES.events!, {
+        filter: {
+          or: [
+            { property: 'Title', rich_text: { contains: query } },
+            { property: 'Description', rich_text: { contains: query } }
+          ]
+        }
+      });
+
+      return {
+        products: productsResponse.results.map(page => this.transformPageToProduct(page)),
+        services: servicesResponse.results.map(page => this.transformPageToService(page)),
+        events: eventsResponse.results.map(page => this.transformPageToEvent(page)),
         query,
+        filters: {
+          date: new Date().toISOString()
+        }
       };
     } catch (error) {
-      console.error('Erreur lors de la récupération du contexte:', error);
-      throw error;
+      throw this.handleError(error);
     }
   }
 }
 
-export const notionService = NotionServiceManager.getInstance();
+export const notionService = NotionService.getInstance();
