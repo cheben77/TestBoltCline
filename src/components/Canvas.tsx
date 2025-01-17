@@ -52,6 +52,11 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
     }
   };
 
+  const handleLanguageChange = (newLanguage: string) => {
+    setLanguage(newLanguage);
+    updatePreview(content);
+  };
+
   const updatePreview = (code: string) => {
     try {
       switch (language) {
@@ -179,7 +184,7 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
               <h3 className="text-lg font-semibold">Canevas de génération</h3>
               <select 
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                onChange={(e) => handleLanguageChange(e.target.value)}
                 className="bg-green-700 text-white rounded px-2 py-1 text-sm"
               >
                 <option value="text">Text</option>
@@ -350,14 +355,22 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
             </div>
             <div className="flex-1 flex flex-col gap-4">
               <div className="flex-1 flex gap-4">
-                <div className="flex-1">
+                <div className="flex-1 flex flex-col gap-4">
                   <textarea
                     ref={textareaRef}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    className="w-full h-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none text-gray-900"
+                    className="flex-1 w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 font-mono resize-none text-gray-900"
                     placeholder="Le contenu généré apparaîtra ici..."
                   />
+                  {preview && (
+                    <div className="flex-1 p-4 border rounded-lg bg-gray-50">
+                      <h4 className="font-medium mb-2 text-gray-900">Prévisualisation</h4>
+                      <pre className="whitespace-pre-wrap text-gray-900 font-mono">
+                        {preview}
+                      </pre>
+                    </div>
+                  )}
                 </div>
                 <div className="w-80 flex flex-col gap-4">
                   {selectedTrigger ? (
