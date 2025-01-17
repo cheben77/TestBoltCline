@@ -1,40 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Trigger, TriggerParam, Workflow, WorkflowStep } from '@/lib/triggers';
+import { useState } from 'react';
+import { Workflow, TRIGGERS, Trigger, TriggerParam } from '@/lib/triggers';
 
 interface WorkflowBuilderProps {
   onSave: (workflow: Workflow) => void;
   onCancel: () => void;
 }
 
+interface WorkflowStep {
+  id: string;
+  triggerId: string;
+  params: Record<string, any>;
+  next?: string;
+}
+
 export default function WorkflowBuilder({ onSave, onCancel }: WorkflowBuilderProps) {
-  const [triggers, setTriggers] = useState<Trigger[]>([]);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [steps, setSteps] = useState<Record<string, WorkflowStep>>({});
-  const [workflowName, setWorkflowName] = useState('');
-  const [workflowDescription, setWorkflowDescription] = useState('');
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [firstStepId, setFirstStepId] = useState<string>('');
-
-  useEffect(() => {
-    loadTriggers();
-  }, []);
-
-  const loadTriggers = async () => {
-    try {
-      const response = await fetch('/api/triggers');
-      const data = await response.json();
-      setTriggers(data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des triggers:', error);
-    }
-  };
+  const [firstStepId, setFirstStepId] = useState<string | null>(null);
 
   const addStep = () => {
     const stepId = `step-${Date.now()}`;
     setSteps(prev => ({
       ...prev,
       [stepId]: {
+        id: stepId,
         triggerId: '',
         params: {},
       }
@@ -43,6 +36,31 @@ export default function WorkflowBuilder({ onSave, onCancel }: WorkflowBuilderPro
       setFirstStepId(stepId);
     }
     setSelectedStepId(stepId);
+  };
+
+  const removeStep = (stepId: string) => {
+    setSteps(prev => {
+      const newSteps = { ...prev };
+      delete newSteps[stepId];
+
+      // Mettre à jour les références next
+      Object.values(newSteps).forEach(step => {
+        if (step.next === stepId) {
+          step.next = prev[stepId]?.next;
+        }
+      });
+
+      // Mettre à jour firstStepId si nécessaire
+      if (firstStepId === stepId) {
+        const remainingSteps = Object.keys(newSteps);
+        setFirstStepId(remainingSteps.length > 0 ? remainingSteps[0] : null);
+      }
+
+      return newSteps;
+    });
+    if (selectedStepId === stepId) {
+      setSelectedStepId(null);
+    }
   };
 
   const updateStep = (stepId: string, updates: Partial<WorkflowStep>) => {
@@ -55,213 +73,242 @@ export default function WorkflowBuilder({ onSave, onCancel }: WorkflowBuilderPro
     }));
   };
 
-  const removeStep = (stepId: string) => {
-    setSteps(prev => {
-      const { [stepId]: removed, ...rest } = prev;
-      return rest;
-    });
-    if (firstStepId === stepId) {
-      const remainingSteps = Object.keys(steps).filter(id => id !== stepId);
-      setFirstStepId(remainingSteps[0] || '');
-    }
-  };
-
   const handleSave = () => {
+    if (!name || !firstStepId) return;
+
     const workflow: Workflow = {
       id: `workflow-${Date.now()}`,
-      name: workflowName,
-      description: workflowDescription,
+      name,
+      description,
       steps,
       firstStepId,
     };
+
     onSave(workflow);
   };
 
-  return (
-    <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">Créer un Workflow</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Nom</label>
-            <input
-              type="text"
-              value={workflowName}
-              onChange={(e) => setWorkflowName(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <textarea
-              value={workflowDescription}
-              onChange={(e) => setWorkflowDescription(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-              rows={2}
-            />
-          </div>
-        </div>
-      </div>
+  const renderStepNode = (stepId: string) => {
+    const step = steps[stepId];
+    const trigger = TRIGGERS.find(t => t.id === step.triggerId);
 
-      <div className="flex gap-6">
-        <div className="w-1/3 border-r pr-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-medium">Étapes</h3>
+    return (
+      <div
+        key={stepId}
+        className={`p-4 border rounded-lg mb-4 cursor-pointer ${
+          selectedStepId === stepId ? 'border-green-500 bg-green-50' : 'border-gray-200'
+        }`}
+        onClick={() => setSelectedStepId(stepId)}
+      >
+        <div className="flex justify-between items-center mb-2">
+          <div className="font-medium">
+            {trigger ? trigger.name : 'Nouveau trigger'}
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={addStep}
-              className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                const newStepId = `step-${Date.now()}`;
+                setSteps(prev => ({
+                  ...prev,
+                  [stepId]: {
+                    ...prev[stepId],
+                    next: newStepId,
+                  },
+                  [newStepId]: {
+                    id: newStepId,
+                    triggerId: '',
+                    params: {},
+                    next: prev[stepId].next,
+                  },
+                }));
+                setSelectedStepId(newStepId);
+              }}
+              className="p-1 text-green-600 hover:text-green-800"
+              title="Ajouter une étape après"
             >
-              Ajouter
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                removeStep(stepId);
+              }}
+              className="p-1 text-red-600 hover:text-red-800"
+              title="Supprimer l'étape"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
-          <div className="space-y-2">
-            {Object.entries(steps).map(([stepId, step]) => (
-              <div
-                key={stepId}
-                className={`p-2 border rounded cursor-pointer ${
-                  selectedStepId === stepId ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'
-                }`}
-                onClick={() => setSelectedStepId(stepId)}
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium text-sm">
-                      {triggers.find(t => t.id === step.triggerId)?.name || 'Nouvelle étape'}
-                    </div>
-                    {stepId === firstStepId && (
-                      <div className="text-xs text-green-600">Première étape</div>
-                    )}
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeStep(stepId);
-                    }}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))}
+        </div>
+        {step.next && (
+          <div className="mt-2 border-l-2 border-green-500 pl-4">
+            {renderStepNode(step.next)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[95vh] flex flex-col">
+      <div className="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Créer un workflow</h3>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="px-3 py-1 text-sm bg-green-700 hover:bg-green-800 rounded"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!name || !firstStepId}
+            className="px-3 py-1 text-sm bg-green-700 hover:bg-green-800 rounded disabled:opacity-50"
+          >
+            Sauvegarder
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 p-4 flex gap-4">
+        <div className="w-1/3 border-r pr-4">
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nom du workflow
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+              placeholder="Mon workflow"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+              placeholder="Description du workflow"
+              rows={3}
+            />
+          </div>
+          <div>
+            <button
+              onClick={addStep}
+              className="w-full px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Ajouter une étape
+            </button>
+          </div>
+          <div className="mt-4">
+            {firstStepId && renderStepNode(firstStepId)}
           </div>
         </div>
-
         <div className="flex-1">
-          {selectedStepId && steps[selectedStepId] && (
+          {selectedStepId ? (
             <div>
-              <h3 className="font-medium mb-4">Configuration de l'étape</h3>
+              <h4 className="font-medium mb-4">Configuration de l'étape</h4>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Trigger</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Trigger
+                  </label>
                   <select
                     value={steps[selectedStepId].triggerId}
-                    onChange={(e) => updateStep(selectedStepId, { triggerId: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    onChange={(e) => {
+                      updateStep(selectedStepId, {
+                        triggerId: e.target.value,
+                        params: {},
+                      });
+                    }}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
                   >
                     <option value="">Sélectionner un trigger</option>
-                    {triggers.map(trigger => (
+                    {TRIGGERS.map(trigger => (
                       <option key={trigger.id} value={trigger.id}>
                         {trigger.name}
                       </option>
                     ))}
                   </select>
                 </div>
-
                 {steps[selectedStepId].triggerId && (
                   <div className="space-y-4">
-                    {triggers
-                      .find(t => t.id === steps[selectedStepId].triggerId)
-                      ?.params.map(param => (
-                        <div key={param.id}>
-                          <label className="block text-sm font-medium text-gray-700">
-                            {param.name}
-                          </label>
-                          {param.type === 'select' ? (
-                            <select
-                              value={steps[selectedStepId].params[param.id] || ''}
-                              onChange={(e) =>
-                                updateStep(selectedStepId, {
-                                  params: {
-                                    ...steps[selectedStepId].params,
-                                    [param.id]: e.target.value,
-                                  },
-                                })
-                              }
-                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                            >
-                              <option value="">Sélectionner une option</option>
-                              {param.options?.map(option => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              type={param.type === 'number' ? 'number' : 'text'}
-                              value={steps[selectedStepId].params[param.id] || ''}
-                              onChange={(e) =>
-                                updateStep(selectedStepId, {
-                                  params: {
-                                    ...steps[selectedStepId].params,
-                                    [param.id]: e.target.value,
-                                  },
-                                })
-                              }
-                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                            />
-                          )}
-                          <p className="mt-1 text-sm text-gray-500">{param.description}</p>
-                        </div>
-                      ))}
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Étape suivante
-                      </label>
-                      <select
-                        value={steps[selectedStepId].next || ''}
-                        onChange={(e) =>
-                          updateStep(selectedStepId, { next: e.target.value || undefined })
-                        }
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                      >
-                        <option value="">Fin du workflow</option>
-                        {Object.keys(steps)
-                          .filter(id => id !== selectedStepId)
-                          .map(stepId => (
-                            <option key={stepId} value={stepId}>
-                              {triggers.find(t => t.id === steps[stepId].triggerId)?.name ||
-                                'Étape non configurée'}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
+                    {TRIGGERS.find(t => t.id === steps[selectedStepId].triggerId)?.params.map(param => (
+                      <div key={param.id}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {param.name}
+                        </label>
+                        {param.type === 'select' ? (
+                          <select
+                            value={steps[selectedStepId].params[param.id] || ''}
+                            onChange={(e) => {
+                              updateStep(selectedStepId, {
+                                params: {
+                                  ...steps[selectedStepId].params,
+                                  [param.id]: e.target.value,
+                                },
+                              });
+                            }}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                          >
+                            <option value="">Sélectionner...</option>
+                            {param.options?.map(option => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : param.type === 'number' ? (
+                          <input
+                            type="number"
+                            value={steps[selectedStepId].params[param.id] || ''}
+                            onChange={(e) => {
+                              updateStep(selectedStepId, {
+                                params: {
+                                  ...steps[selectedStepId].params,
+                                  [param.id]: Number(e.target.value),
+                                },
+                              });
+                            }}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={steps[selectedStepId].params[param.id] || ''}
+                            onChange={(e) => {
+                              updateStep(selectedStepId, {
+                                params: {
+                                  ...steps[selectedStepId].params,
+                                  [param.id]: e.target.value,
+                                },
+                              });
+                            }}
+                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                          />
+                        )}
+                        <p className="mt-1 text-xs text-gray-500">
+                          {param.description}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
+          ) : (
+            <div className="text-center text-gray-500">
+              Sélectionnez une étape pour la configurer
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="mt-6 flex justify-end gap-2">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-gray-700 hover:text-gray-900"
-        >
-          Annuler
-        </button>
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-          disabled={!workflowName || !firstStepId}
-        >
-          Sauvegarder
-        </button>
       </div>
     </div>
   );
