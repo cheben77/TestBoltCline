@@ -467,6 +467,37 @@ class NotionServiceManager {
     }
   }
 
+  async getEcologicalImpact(): Promise<EcoImpact[]> {
+    if (isDev) {
+      return mockEcologicalImpact;
+    }
+
+    try {
+      const databaseId = this.validateDatabaseId(
+        process.env.NOTION_ECO_IMPACT_DB_ID,
+        'NOTION_ECO_IMPACT_DB_ID'
+      );
+
+      const response = await this.client.databases.query({
+        database_id: databaseId,
+      });
+
+      return response.results.map((page: any) => ({
+        id: page.id,
+        metric_name: page.properties.MetricName?.title[0]?.plain_text || '',
+        value: page.properties.Value?.number || 0,
+        unit: page.properties.Unit?.rich_text[0]?.plain_text || '',
+        date: page.properties.Date?.date?.start || '',
+        category: page.properties.Category?.select?.name || '',
+        description: page.properties.Description?.rich_text[0]?.plain_text || '',
+        improvement_actions: page.properties.ImprovementActions?.rich_text[0]?.plain_text || ''
+      }));
+    } catch (error) {
+      console.error('Erreur lors de la récupération des impacts écologiques:', error);
+      throw error;
+    }
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       await this.getDatabases();
