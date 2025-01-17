@@ -56,6 +56,16 @@ interface EcoImpact {
   improvement_actions: string;
 }
 
+interface CustomerReview {
+  id: string;
+  product_id?: string;
+  service_id?: string;
+  rating: number;
+  comment: string;
+  author: string;
+  date: string;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -74,12 +84,14 @@ class NotionServiceManager {
     services?: Service[];
     ecoImpact?: EcoImpact[];
     persons?: Person[];
+    reviews?: CustomerReview[];
     databases?: Array<{name: string; id: string; properties: any}>;
     lastUpdate: {
       products?: Date;
       services?: Date;
       ecoImpact?: Date;
       persons?: Date;
+      reviews?: Date;
       databases?: Date;
     };
   };
@@ -494,6 +506,62 @@ class NotionServiceManager {
       }));
     } catch (error) {
       console.error('Erreur lors de la récupération des impacts écologiques:', error);
+      throw error;
+    }
+  }
+
+  async getCustomerReviews(): Promise<CustomerReview[]> {
+    if (isDev) {
+      return [
+        {
+          id: 'rev1',
+          product_id: 'prod1',
+          rating: 5,
+          comment: 'Excellent produit naturel',
+          author: 'Marie L.',
+          date: '2024-01-15'
+        },
+        {
+          id: 'rev2',
+          service_id: 'serv1',
+          rating: 4,
+          comment: 'Très bonne séance de relaxation',
+          author: 'Pierre M.',
+          date: '2024-01-16'
+        }
+      ];
+    }
+
+    try {
+      if (this.cache.reviews && !this.shouldRefreshCache('reviews')) {
+        return this.cache.reviews;
+      }
+
+      const databaseId = this.validateDatabaseId(
+        process.env.NOTION_REVIEWS_DB_ID,
+        'NOTION_REVIEWS_DB_ID'
+      );
+
+      const response = await this.client.databases.query({
+        database_id: databaseId,
+      });
+
+      const reviews = response.results.map((page: any) => ({
+        id: page.id,
+        product_id: page.properties.ProductId?.rich_text[0]?.plain_text,
+        service_id: page.properties.ServiceId?.rich_text[0]?.plain_text,
+        rating: page.properties.Rating?.number || 0,
+        comment: page.properties.Comment?.rich_text[0]?.plain_text || '',
+        author: page.properties.Author?.rich_text[0]?.plain_text || '',
+        date: page.properties.Date?.date?.start || ''
+      }));
+
+      this.cache.reviews = reviews;
+      this.cache.lastUpdate.reviews = new Date();
+
+      return reviews;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des avis:', error);
       throw error;
     }
   }
