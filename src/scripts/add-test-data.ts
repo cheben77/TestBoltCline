@@ -1,5 +1,5 @@
-const { Client } = require('@notionhq/client');
-const fs = require('fs').promises;
+import { Client } from '@notionhq/client';
+import { promises as fs } from 'fs';
 
 const notion = new Client({
   auth: process.env.NOTION_API_KEY,
@@ -9,9 +9,21 @@ async function addTestData() {
   try {
     console.log('Ajout des données de test...');
 
+    // Vérifier les variables d'environnement requises
+    const NOTION_PRODUCTS_DB_ID = process.env.NOTION_PRODUCTS_DB_ID;
+    const NOTION_SERVICES_DB_ID = process.env.NOTION_SERVICES_DB_ID;
+    const NOTION_WORKSHOPS_DB_ID = process.env.NOTION_WORKSHOPS_DB_ID;
+    const NOTION_REVIEWS_DB_ID = process.env.NOTION_REVIEWS_DB_ID;
+    const NOTION_ECO_IMPACT_DB_ID = process.env.NOTION_ECO_IMPACT_DB_ID;
+
+    if (!NOTION_PRODUCTS_DB_ID || !NOTION_SERVICES_DB_ID || !NOTION_WORKSHOPS_DB_ID || 
+        !NOTION_REVIEWS_DB_ID || !NOTION_ECO_IMPACT_DB_ID) {
+      throw new Error('Variables d\'environnement manquantes');
+    }
+
     // Ajouter un produit de test
     const product = await notion.pages.create({
-      parent: { database_id: process.env.NOTION_PRODUCTS_DB_ID },
+      parent: { database_id: NOTION_PRODUCTS_DB_ID },
       properties: {
         Name: {
           title: [{ text: { content: 'Huile Essentielle de Lavande Bio' } }],
@@ -45,7 +57,7 @@ async function addTestData() {
 
     // Ajouter un service de test
     const service = await notion.pages.create({
-      parent: { database_id: process.env.NOTION_SERVICES_DB_ID },
+      parent: { database_id: NOTION_SERVICES_DB_ID },
       properties: {
         Name: {
           title: [{ text: { content: 'Massage Relaxant aux Huiles Essentielles' } }],
@@ -80,7 +92,7 @@ async function addTestData() {
 
     // Ajouter un atelier de test
     const workshop = await notion.pages.create({
-      parent: { database_id: process.env.NOTION_WORKSHOPS_DB_ID },
+      parent: { database_id: NOTION_WORKSHOPS_DB_ID },
       properties: {
         Name: {
           title: [{ text: { content: 'Initiation à l\'Aromathérapie' } }],
@@ -115,7 +127,7 @@ async function addTestData() {
 
     // Ajouter un avis client de test
     const review = await notion.pages.create({
-      parent: { database_id: process.env.NOTION_REVIEWS_DB_ID },
+      parent: { database_id: NOTION_REVIEWS_DB_ID },
       properties: {
         CustomerName: {
           title: [{ text: { content: 'Jean Dupont' } }],
@@ -136,7 +148,7 @@ async function addTestData() {
 
     // Ajouter une donnée d'impact écologique de test
     const ecoImpact = await notion.pages.create({
-      parent: { database_id: process.env.NOTION_ECO_IMPACT_DB_ID },
+      parent: { database_id: NOTION_ECO_IMPACT_DB_ID },
       properties: {
         MetricName: {
           title: [{ text: { content: 'Réduction Emballages' } }],
