@@ -106,17 +106,37 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
   };
 
   const handleCreateWorkflow = async () => {
+    if (automationSteps.length === 0) {
+      console.error('Aucune étape d\'automatisation définie');
+      return;
+    }
+
+    const firstStep = automationSteps[0];
     const workflow: Workflow = {
       id: Math.random().toString(36).substring(7),
       name: 'Nouveau workflow',
       description: 'Workflow créé depuis le canevas',
-      firstStepId: '',
+      firstStepId: firstStep.id,
       steps: {},
       triggers: [],
       status: 'inactive',
       createdAt: new Date(),
       updatedAt: new Date()
     };
+
+    // Convertir les étapes d'automatisation en étapes de workflow
+    automationSteps.forEach((step, index) => {
+      const workflowStep: WorkflowStep = {
+        id: step.id,
+        name: `Étape ${index + 1}`,
+        description: `${step.type} automatisé`,
+        triggerId: step.type === 'trigger' ? step.id : '',
+        trigger: TRIGGERS['system-info'],
+        params: step.config,
+        nextStepId: index < automationSteps.length - 1 ? automationSteps[index + 1].id : undefined
+      };
+      workflow.steps[step.id] = workflowStep;
+    });
 
     try {
       const response = await fetch('/api/workflows', {
@@ -128,11 +148,13 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
       });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la création du workflow');
+        const error = await response.json();
+        throw new Error(error.message || 'Erreur lors de la création du workflow');
       }
 
       const savedWorkflow = await response.json();
       console.log('Workflow créé:', savedWorkflow);
+      onClose();
     } catch (error) {
       console.error('Erreur:', error);
     }
