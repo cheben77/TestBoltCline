@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Workflow, WorkflowStep, Trigger, TRIGGERS } from '../lib/triggers';
-import './Canvas.css';
+import { Workflow, WorkflowStep, Trigger, TRIGGERS } from '@/lib/triggers';
+import WorkflowBuilder from '@/components/WorkflowBuilder';
+import './ChatCanvas.css';
 
 interface Props {
   onClose: () => void;
@@ -104,7 +105,7 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
     setCodeBlocks([...codeBlocks, newBlock]);
   };
 
-  const handleCreateWorkflow = () => {
+  const handleCreateWorkflow = async () => {
     const workflow: Workflow = {
       id: Math.random().toString(36).substring(7),
       name: 'Nouveau workflow',
@@ -117,34 +118,36 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
       updatedAt: new Date()
     };
 
-    // Convertir les étapes d'automatisation en étapes de workflow
-    automationSteps.forEach(step => {
-      const workflowStep: WorkflowStep = {
-        id: step.id,
-        name: `Étape ${step.id}`,
-        description: `${step.type} automatisé`,
-        triggerId: step.type === 'trigger' ? step.id : '',
-        trigger: TRIGGERS['system-info'], // À remplacer par le trigger approprié
-        params: step.config,
-        nextStepId: step.nextSteps[0]
-      };
-      workflow.steps[step.id] = workflowStep;
-    });
+    try {
+      const response = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(workflow),
+      });
 
-    // TODO: Sauvegarder le workflow
-    console.log('Workflow créé:', workflow);
+      if (!response.ok) {
+        throw new Error('Erreur lors de la création du workflow');
+      }
+
+      const savedWorkflow = await response.json();
+      console.log('Workflow créé:', savedWorkflow);
+    } catch (error) {
+      console.error('Erreur:', error);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-[95vw] md:w-[1200px] h-[95vh] md:h-[800px] flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-xl font-semibold">Canevas d'Automatisation</h2>
-          <div className="flex items-center gap-4">
+    <div className="chat-canvas">
+      <div className="chat-canvas-container">
+        <div className="chat-canvas-header">
+          <h2 className="chat-canvas-title">Canevas d'Automatisation</h2>
+          <div className="chat-canvas-tools">
             <select
               value={selectedLanguage}
               onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="p-2 border rounded-lg"
+              className="chat-canvas-language"
             >
               {supportedLanguages.map(lang => (
                 <option key={lang.id} value={lang.id}>{lang.name}</option>
@@ -170,7 +173,7 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
                         break;
                     }
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-lg flex items-center gap-2"
+                  className="chat-canvas-tool-button"
                   title={tool.name}
                 >
                   <span>{tool.icon}</span>
@@ -189,22 +192,22 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
           </div>
         </div>
         
-        <div className="flex-1 flex">
+        <div className="chat-canvas-content">
           {/* Panneau de gauche : Message original */}
-          <div className="w-1/3 p-4 border-r overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Message Original</h3>
-            <div className="prose max-w-none whitespace-pre-wrap">
+          <div className="chat-canvas-panel">
+            <h3 className="chat-canvas-panel-title">Message Original</h3>
+            <div className="chat-canvas-message">
               {content}
             </div>
           </div>
 
           {/* Panneau central : Blocs de code */}
-          <div className="w-1/3 p-4 border-r overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Blocs de Code</h3>
+          <div className="chat-canvas-panel">
+            <h3 className="chat-canvas-panel-title">Blocs de Code</h3>
             {codeBlocks.map(block => (
-              <div key={block.id} className="mb-4 p-4 border rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium">{block.language}</span>
+              <div key={block.id} className="chat-canvas-code-block">
+                <div className="chat-canvas-code-header">
+                  <span className="chat-canvas-code-language">{block.language}</span>
                   <button
                     onClick={() => {
                       const updatedBlocks = codeBlocks.filter(b => b.id !== block.id);
@@ -215,7 +218,7 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
                     ×
                   </button>
                 </div>
-                <pre className="bg-gray-50 p-2 rounded overflow-x-auto">
+                <pre className="chat-canvas-code-content">
                   <code>{block.code}</code>
                 </pre>
                 <input
@@ -228,18 +231,18 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
                     setCodeBlocks(updatedBlocks);
                   }}
                   placeholder="Description du code"
-                  className="mt-2 w-full p-2 border rounded"
+                  className="chat-canvas-code-description"
                 />
               </div>
             ))}
           </div>
 
           {/* Panneau de droite : Étapes d'automatisation */}
-          <div className="w-1/3 p-4 overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Automatisation</h3>
+          <div className="chat-canvas-panel">
+            <h3 className="chat-canvas-panel-title">Automatisation</h3>
             {automationSteps.map(step => (
-              <div key={step.id} className="mb-4 p-4 border rounded-lg">
-                <div className="flex justify-between items-center mb-2">
+              <div key={step.id} className="chat-canvas-automation">
+                <div className="chat-canvas-automation-header">
                   <select
                     value={step.type}
                     onChange={(e) => {
@@ -248,7 +251,7 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
                       );
                       setAutomationSteps(updatedSteps);
                     }}
-                    className="p-2 border rounded"
+                    className="chat-canvas-automation-type"
                   >
                     <option value="trigger">Déclencheur</option>
                     <option value="action">Action</option>
@@ -279,7 +282,7 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
                       }
                     }}
                     placeholder="Configuration (JSON)"
-                    className="w-full h-32 p-2 border rounded font-mono text-sm"
+                    className="chat-canvas-automation-config"
                   />
                 </div>
               </div>
@@ -287,16 +290,16 @@ const ChatCanvas: React.FC<Props> = ({ onClose, initialContent }) => {
           </div>
         </div>
 
-        <div className="p-4 border-t flex justify-end gap-2">
+        <div className="chat-canvas-footer">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200"
+            className="chat-canvas-button chat-canvas-button-secondary"
           >
             Annuler
           </button>
           <button
             onClick={handleCreateWorkflow}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="chat-canvas-button chat-canvas-button-primary"
           >
             Créer le Workflow
           </button>
