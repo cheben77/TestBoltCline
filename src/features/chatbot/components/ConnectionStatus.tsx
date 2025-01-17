@@ -1,47 +1,57 @@
 import React from 'react';
 import { useChatConnection } from '../hooks/useChatConnection';
 
-export function ConnectionStatus() {
-  const { ollamaStatus, notionStatus, cudaStatus } = useChatConnection();
+interface ConnectionStatusProps {
+  service: 'ollama' | 'notion' | 'cuda' | 'vscode' | 'internet' | 'spotify' | 'google' | 'youtube';
+}
 
-  const getStatusColor = (isConnected: boolean, isLoading: boolean, error: Error | null) => {
-    if (isLoading) return 'bg-yellow-500';
-    if (error) return 'bg-red-500';
-    return isConnected ? 'bg-green-500' : 'bg-gray-500';
+export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ service }) => {
+  const { 
+    ollamaStatus, 
+    notionStatus, 
+    cudaStatus, 
+    vscodeStatus, 
+    internetStatus, 
+    spotifyStatus,
+    googleStatus,
+    youtubeStatus
+  } = useChatConnection();
+
+  const getStatus = () => {
+    switch (service) {
+      case 'ollama':
+        return ollamaStatus;
+      case 'notion':
+        return notionStatus;
+      case 'cuda':
+        return cudaStatus;
+      case 'vscode':
+        return vscodeStatus;
+      case 'internet':
+        return internetStatus;
+      case 'spotify':
+        return spotifyStatus;
+      case 'google':
+        return googleStatus;
+      case 'youtube':
+        return youtubeStatus;
+      default:
+        return false;
+    }
   };
 
-  const getStatusText = (isConnected: boolean, isLoading: boolean, error: Error | null) => {
-    if (isLoading) return 'Connexion...';
-    if (error) return 'Erreur';
-    return isConnected ? 'Connecté' : 'Déconnecté';
-  };
+  const status = getStatus();
 
-  const renderStatus = (
-    name: string,
-    { isConnected, isLoading, error }: { isConnected: boolean; isLoading: boolean; error: Error | null }
-  ) => (
-    <div className="flex items-center space-x-2">
-      <div
-        className={`w-3 h-3 rounded-full ${getStatusColor(isConnected, isLoading, error)}`}
-        title={error?.message}
-      />
-      <span className="font-medium">{name}</span>
-      <span className="text-sm text-gray-500">
-        {getStatusText(isConnected, isLoading, error)}
+  return (
+    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg ${
+      status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+    }`}>
+      <div className={`w-2 h-2 rounded-full ${
+        status ? 'bg-green-500' : 'bg-red-500'
+      }`} />
+      <span className="text-sm font-medium">
+        {status ? 'Connecté' : 'Non connecté'}
       </span>
     </div>
   );
-
-  return (
-    <div className="p-4 bg-white rounded-lg shadow">
-      <h3 className="text-lg font-medium mb-3">État des connexions</h3>
-      <div className="space-y-2">
-        {renderStatus('Ollama', ollamaStatus)}
-        {renderStatus('Notion', notionStatus)}
-        {renderStatus('CUDA', cudaStatus)}
-      </div>
-    </div>
-  );
-}
-
-export default ConnectionStatus;
+};

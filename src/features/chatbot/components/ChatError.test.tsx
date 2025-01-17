@@ -1,82 +1,158 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ChatError } from './ChatError';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import ChatError from './ChatError';
 import { useChatError } from '../hooks/useChatError';
-import { useChatConnection } from '../hooks/useChatConnection';
 
-// Mock des hooks
-jest.mock('../hooks/useChatError');
-jest.mock('../hooks/useChatConnection');
+// Mock du hook useChatError
+jest.mock('../hooks/useChatError', () => ({
+  useChatError: jest.fn()
+}));
+
+// Mock de fetch pour les tests d'importation
+global.fetch = jest.fn();
 
 describe('ChatError', () => {
-  const mockMessage = 'Une erreur est survenue';
-  const mockOnRetry = jest.fn();
   const mockClearError = jest.fn();
+  const mockOnRetry = jest.fn();
+  const defaultProps = {
+    message: 'Test error message',
+    onRetry: mockOnRetry
+  };
 
   beforeEach(() => {
+    // Reset des mocks
     jest.clearAllMocks();
+    
+    // Configuration par défaut du mock useChatError
     (useChatError as jest.Mock).mockReturnValue({
       clearError: mockClearError
     });
-    (useChatConnection as jest.Mock).mockReturnValue({
-      ollamaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      },
-      notionStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      },
-      cudaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      }
+
+    // Configuration par défaut du mock fetch
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true
     });
   });
 
-  it('affiche le message d\'erreur', () => {
-    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
-    expect(screen.getByText(mockMessage)).toBeInTheDocument();
+  it('rend le message d\'erreur', () => {
+    render(<ChatError {...defaultProps} />);
+    expect(screen.getByText('Test error message')).toBeInTheDocument();
   });
 
-  it('affiche les boutons d\'action', () => {
-    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
-    expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /importer/i })).toBeInTheDocument();
-  });
-
-  it('appelle clearError et onRetry quand le bouton réessayer est cliqué', () => {
-    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
-    fireEvent.click(screen.getByRole('button', { name: /réessayer/i }));
+  it('appelle clearError et onRetry lors du clic sur Réessayer', () => {
+    render(<ChatError {...defaultProps} />);
+    
+    const retryButton = screen.getByText('Réessayer');
+    fireEvent.click(retryButton);
+    
     expect(mockClearError).toHaveBeenCalledTimes(1);
     expect(mockOnRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('gère l\'importation de fichier', () => {
-    const file = new File(['{"test": "data"}'], 'test.json', { type: 'application/json' });
-    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true });
+  it('affiche le bouton d\'importation', () => {
+    render(<ChatError {...defaultProps} />);
+    expect(screen.getByText('Importer')).toBeInTheDocument();
+  });
 
-    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
+  it('gère l\'importation de fichier JSON', async () => {
+    render(<ChatError {...defaultProps} />);
     
-    // Simuler le clic sur le bouton d'import
-    fireEvent.click(screen.getByRole('button', { name: /importer/i }));
+    // Mock FileReader
+    const mockFileReader = {
+      onload: null as any,
+      readAsText: jest.fn().mockImplementation(function(this: any) {
+        setTimeout(() => {
+          this.onload({ target: { result: '{"test": "data"}' } });
+        }, 0);
+      })
+    };
+    (window as any).FileReader = jest.fn(() => mockFileReader);
 
-    // Vérifier que le bouton est présent et a le bon style
-    const importButton = screen.getByRole('button', { name: /importer/i });
-    expect(importButton).toHaveClass('bg-blue-500');
+    // Mock input file
+    const mockFile = new File(['{"test": "data"}'], 'test.json', { type: 'application/json' });
+    const input = document.createElement('input');
+    jest.spyOn(document, 'createElement').mockReturnValue(input);
+    
+    // Clic sur le bouton d'importation
+    const importButton = screen.getByText('Importer');
+    fireEvent.click(importButton);
+
+    // Simuler la sélection de fichier
+    fireEvent.change(input, { target: { files: [mockFile] } });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/chat/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: '{"test":"data"}'
+      });
+    });
+
+    expect(mockClearError).toHaveBeenCalled();
+    expect(mockOnRetry).toHaveBeenCalled();
   });
 
-  it('affiche le composant ConnectionStatus', () => {
-    const { container } = render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
-    expect(container.querySelector('.space-y-4')).toBeInTheDocument();
+  it('gère les erreurs d\'importation', async () => {
+    // Mock console.error pour éviter les logs dans les tests
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Import failed'));
+    
+    render(<ChatError {...defaultProps} />);
+    
+    const mockFileReader = {
+      onload: null as any,
+      readAsText: jest.fn().mockImplementation(function(this: any) {
+        setTimeout(() => {
+          this.onload({ target: { result: '{"test": "data"}' } });
+        }, 0);
+      })
+    };
+    (window as any).FileReader = jest.fn(() => mockFileReader);
+
+    const mockFile = new File(['{"test": "data"}'], 'test.json', { type: 'application/json' });
+    const input = document.createElement('input');
+    jest.spyOn(document, 'createElement').mockReturnValue(input);
+    
+    const importButton = screen.getByText('Importer');
+    fireEvent.click(importButton);
+    fireEvent.change(input, { target: { files: [mockFile] } });
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Erreur lors de l\'importation:',
+        expect.any(Error)
+      );
+    });
+
+    consoleSpy.mockRestore();
   });
 
-  it('applique les styles appropriés', () => {
-    render(<ChatError message={mockMessage} onRetry={mockOnRetry} />);
-    const errorContainer = screen.getByTestId('chat-error');
-    expect(errorContainer).toHaveClass('bg-red-100', 'border-red-400');
+  it('applique les styles corrects aux boutons', () => {
+    render(<ChatError {...defaultProps} />);
+    
+    const retryButton = screen.getByText('Réessayer');
+    const importButton = screen.getByText('Importer');
+    
+    expect(retryButton).toHaveClass(
+      'bg-red-500',
+      'text-white',
+      'rounded',
+      'hover:bg-red-600'
+    );
+    
+    expect(importButton).toHaveClass(
+      'bg-blue-500',
+      'text-white',
+      'rounded',
+      'hover:bg-blue-600'
+    );
+  });
+
+  it('rend le composant ConnectionStatus', () => {
+    render(<ChatError {...defaultProps} />);
+    expect(screen.getByTestId('chat-error')).toBeInTheDocument();
   });
 });

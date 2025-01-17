@@ -12,13 +12,19 @@
     "test:watch": "jest --watch",
     "init-notion": "ts-node -r dotenv/config src/scripts/init-notion-databases.ts dotenv_config_path=.env.local",
     "add-test-data": "ts-node -r dotenv/config src/scripts/add-test-data.ts dotenv_config_path=.env.local",
-    "list-databases": "ts-node -r dotenv/config src/scripts/list-databases.ts dotenv_config_path=.env.local"
+    "list-databases": "ts-node -r dotenv/config src/scripts/list-databases.ts dotenv_config_path=.env.local",
+    "auth:google": "node -r dotenv/config scripts/get-google-tokens.js dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.0",
     "@notionhq/client": "^2.2.14",
+    "axios": "^1.7.9",
     "dotenv": "^16.3.1",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
     "next": "14.0.4",
+    "node-fetch": "^3.3.2",
+    "open": "^10.1.0",
     "react": "^18",
     "react-dom": "^18",
     "react-speech-recognition": "^3.10.0",

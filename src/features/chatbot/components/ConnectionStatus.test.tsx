@@ -3,138 +3,177 @@ import { render, screen } from '@testing-library/react';
 import { ConnectionStatus } from './ConnectionStatus';
 import { useChatConnection } from '../hooks/useChatConnection';
 
-// Mock du hook useChatConnection
 jest.mock('../hooks/useChatConnection');
 
 describe('ConnectionStatus', () => {
+  const mockUseChatConnection = useChatConnection as jest.Mock;
+
   beforeEach(() => {
-    (useChatConnection as jest.Mock).mockReturnValue({
-      ollamaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      },
-      notionStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      },
-      cudaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      }
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: false,
     });
   });
 
-  it('affiche le titre', () => {
-    render(<ConnectionStatus />);
-    expect(screen.getByText('État des connexions')).toBeInTheDocument();
-  });
-
-  it('affiche les noms des services', () => {
-    render(<ConnectionStatus />);
-    expect(screen.getByText('Ollama')).toBeInTheDocument();
-    expect(screen.getByText('Notion')).toBeInTheDocument();
-    expect(screen.getByText('CUDA')).toBeInTheDocument();
-  });
-
-  it('affiche le statut connecté', () => {
-    (useChatConnection as jest.Mock).mockReturnValue({
-      ollamaStatus: {
-        isConnected: true,
-        isLoading: false,
-        error: null
-      },
-      notionStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      },
-      cudaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      }
+  it('renders ollama status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: true,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: false,
     });
 
-    render(<ConnectionStatus />);
+    render(<ConnectionStatus service="ollama" />);
     expect(screen.getByText('Connecté')).toBeInTheDocument();
-    expect(screen.getAllByText('Déconnecté')).toHaveLength(2);
   });
 
-  it('affiche le statut en cours de connexion', () => {
-    (useChatConnection as jest.Mock).mockReturnValue({
-      ollamaStatus: {
-        isConnected: false,
-        isLoading: true,
-        error: null
-      },
-      notionStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      },
-      cudaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      }
+  it('renders notion status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: true,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: false,
     });
 
-    render(<ConnectionStatus />);
-    expect(screen.getByText('Connexion...')).toBeInTheDocument();
+    render(<ConnectionStatus service="notion" />);
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
   });
 
-  it('affiche le statut d\'erreur', () => {
-    const error = new Error('Test error');
-    (useChatConnection as jest.Mock).mockReturnValue({
-      ollamaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error
-      },
-      notionStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      },
-      cudaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: null
-      }
+  it('renders cuda status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: false,
+      cudaStatus: true,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: false,
     });
 
-    render(<ConnectionStatus />);
-    expect(screen.getByText('Erreur')).toBeInTheDocument();
-    expect(screen.getByTitle('Test error')).toBeInTheDocument();
+    render(<ConnectionStatus service="cuda" />);
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
   });
 
-  it('applique les bonnes classes de couleur', () => {
-    (useChatConnection as jest.Mock).mockReturnValue({
-      ollamaStatus: {
-        isConnected: true,
-        isLoading: false,
-        error: null
-      },
-      notionStatus: {
-        isConnected: false,
-        isLoading: true,
-        error: null
-      },
-      cudaStatus: {
-        isConnected: false,
-        isLoading: false,
-        error: new Error('Test error')
-      }
+  it('renders vscode status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: true,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: false,
     });
 
-    const { container } = render(<ConnectionStatus />);
-    
-    const indicators = container.querySelectorAll('.rounded-full');
-    expect(indicators[0]).toHaveClass('bg-green-500'); // Connecté
-    expect(indicators[1]).toHaveClass('bg-yellow-500'); // En cours
-    expect(indicators[2]).toHaveClass('bg-red-500'); // Erreur
+    render(<ConnectionStatus service="vscode" />);
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
+  });
+
+  it('renders internet status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: true,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: false,
+    });
+
+    render(<ConnectionStatus service="internet" />);
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
+  });
+
+  it('renders spotify status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: true,
+      googleStatus: false,
+      youtubeStatus: false,
+    });
+
+    render(<ConnectionStatus service="spotify" />);
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
+  });
+
+  it('renders google status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: true,
+      youtubeStatus: false,
+    });
+
+    render(<ConnectionStatus service="google" />);
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
+  });
+
+  it('renders youtube status correctly', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: false,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: true,
+    });
+
+    render(<ConnectionStatus service="youtube" />);
+    expect(screen.getByText('Connecté')).toBeInTheDocument();
+  });
+
+  it('renders disconnected status correctly', () => {
+    render(<ConnectionStatus service="ollama" />);
+    expect(screen.getByText('Non connecté')).toBeInTheDocument();
+  });
+
+  it('renders with correct styles when connected', () => {
+    mockUseChatConnection.mockReturnValue({
+      ollamaStatus: true,
+      notionStatus: false,
+      cudaStatus: false,
+      vscodeStatus: false,
+      internetStatus: false,
+      spotifyStatus: false,
+      googleStatus: false,
+      youtubeStatus: false,
+    });
+
+    render(<ConnectionStatus service="ollama" />);
+    const container = screen.getByText('Connecté').parentElement;
+    expect(container).toHaveClass('bg-green-100', 'text-green-800');
+  });
+
+  it('renders with correct styles when disconnected', () => {
+    render(<ConnectionStatus service="ollama" />);
+    const container = screen.getByText('Non connecté').parentElement;
+    expect(container).toHaveClass('bg-red-100', 'text-red-800');
   });
 });

@@ -2,6 +2,12 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Canvas from './Canvas';
 import { Workflow } from '../lib/triggers';
+import { useChatConnection } from '@/features/chatbot/hooks/useChatConnection';
+import { useVSCodeSync } from '../hooks/useVSCodeSync';
+
+// Mock des hooks
+jest.mock('@/features/chatbot/hooks/useChatConnection');
+jest.mock('../hooks/useVSCodeSync');
 
 describe('Canvas Component', () => {
   const mockWorkflow: Workflow = {
@@ -31,6 +37,21 @@ describe('Canvas Component', () => {
     createdAt: new Date(),
     updatedAt: new Date()
   };
+
+  beforeEach(() => {
+    // Mock par défaut pour useChatConnection
+    (useChatConnection as jest.Mock).mockReturnValue({
+      vscodeStatus: { isConnected: false, isLoading: false, error: null },
+      notionStatus: { isConnected: false, isLoading: false, error: null }
+    });
+
+    // Mock par défaut pour useVSCodeSync
+    (useVSCodeSync as jest.Mock).mockReturnValue({
+      isConnected: false,
+      error: null,
+      syncToVSCode: jest.fn()
+    });
+  });
 
   test('renders empty state initially', () => {
     render(<Canvas />);
@@ -62,6 +83,46 @@ describe('Canvas Component', () => {
     // Check if preview is shown
     expect(screen.getByText('Test Workflow')).toBeInTheDocument();
     expect(onSave).toHaveBeenCalled();
+  });
+
+  test('shows VSCode sync button when connected', () => {
+    (useChatConnection as jest.Mock).mockReturnValue({
+      vscodeStatus: { isConnected: true, isLoading: false, error: null },
+      notionStatus: { isConnected: false, isLoading: false, error: null }
+    });
+
+    render(<Canvas initialWorkflow={mockWorkflow} />);
+    expect(screen.getByTitle('Synchroniser avec VSCode')).toBeInTheDocument();
+  });
+
+  test('shows Notion status when connected', () => {
+    (useChatConnection as jest.Mock).mockReturnValue({
+      vscodeStatus: { isConnected: false, isLoading: false, error: null },
+      notionStatus: { isConnected: true, isLoading: false, error: null }
+    });
+
+    render(<Canvas initialWorkflow={mockWorkflow} />);
+    expect(screen.getByTitle('Synchronisé avec Notion')).toBeInTheDocument();
+  });
+
+  test('calls syncToVSCode when VSCode sync button is clicked', () => {
+    const mockSyncToVSCode = jest.fn();
+    (useVSCodeSync as jest.Mock).mockReturnValue({
+      isConnected: true,
+      error: null,
+      syncToVSCode: mockSyncToVSCode
+    });
+    (useChatConnection as jest.Mock).mockReturnValue({
+      vscodeStatus: { isConnected: true, isLoading: false, error: null },
+      notionStatus: { isConnected: false, isLoading: false, error: null }
+    });
+
+    render(<Canvas initialWorkflow={mockWorkflow} />);
+    
+    const syncButton = screen.getByTitle('Synchroniser avec VSCode');
+    fireEvent.click(syncButton);
+    
+    expect(mockSyncToVSCode).toHaveBeenCalled();
   });
 
   test('shows edit button when workflow exists', () => {
@@ -128,5 +189,45 @@ describe('Canvas Component', () => {
     
     // Check if camera trigger is listed
     expect(screen.getByText('Flux Caméra')).toBeInTheDocument();
+  });
+
+  test('displays connection status in workflow info', () => {
+    (useChatConnection as jest.Mock).mockReturnValue({
+      vscodeStatus: { isConnected: true, isLoading: false, error: null },
+      notionStatus: { isConnected: true, isLoading: false, error: null }
+    });
+
+    render(<Canvas initialWorkflow={mockWorkflow} />);
+    
+    // Check VSCode status
+    const vscodeStatus = screen.getByText('VSCode:').nextElementSibling;
+    expect(vscodeStatus).toHaveClass('connected');
+    
+    // Check Notion status
+    const notionStatus = screen.getByText('Notion:').nextElementSibling;
+    expect(notionStatus).toHaveClass('connected');
+  });
+
+  test('syncs with VSCode after saving workflow when connected', async () => {
+    const mockSyncToVSCode = jest.fn();
+    (useVSCodeSync as jest.Mock).mockReturnValue({
+      isConnected: true,
+      error: null,
+      syncToVSCode: mockSyncToVSCode
+    });
+    (useChatConnection as jest.Mock).mockReturnValue({
+      vscodeStatus: { isConnected: true, isLoading: false, error: null },
+      notionStatus: { isConnected: false, isLoading: false, error: null }
+    });
+
+    render(<Canvas />);
+    
+    // Create and save workflow
+    fireEvent.click(screen.getByText('Créer un workflow'));
+    const nameInput = screen.getByPlaceholderText('Nom du workflow');
+    fireEvent.change(nameInput, { target: { value: 'Test Workflow' } });
+    fireEvent.click(screen.getByText('Sauvegarder'));
+    
+    expect(mockSyncToVSCode).toHaveBeenCalled();
   });
 });
