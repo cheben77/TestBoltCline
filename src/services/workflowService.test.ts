@@ -205,6 +205,23 @@ describe('WorkflowService', () => {
     });
   });
 
+  describe('getExecutionHistory', () => {
+    it('should return empty array for non-existent workflow', async () => {
+      const history = await service.getExecutionHistory('non-existent');
+      expect(history).toEqual([]);
+    });
+
+    it('should return execution history for workflow', async () => {
+      await service.createWorkflow(mockWorkflow);
+      await service.executeWorkflow(mockWorkflow.id);
+      
+      const history = await service.getExecutionHistory(mockWorkflow.id);
+      expect(history).toHaveLength(2);
+      expect(history[0].stepId).toBe('step1');
+      expect(history[1].stepId).toBe('step2');
+    });
+  });
+
   describe('cancelExecution', () => {
     it('should return false when no execution exists', async () => {
       const result = await service.cancelExecution('non-existent');

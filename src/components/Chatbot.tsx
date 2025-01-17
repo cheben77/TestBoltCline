@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import type { FormEvent, ChangeEvent, ReactNode } from 'react';
-import Canvas from './Canvas';
+import ChatCanvas from './ChatCanvas';
 import FileUploadProgress from './FileUploadProgress';
 import ChatConnections from './ChatConnections';
 import { notionService } from '@/services/notion';
@@ -752,7 +752,7 @@ export default function Chatbot(): React.ReactElement {
       )}
 
       {showCanvas && (
-        <Canvas
+        <ChatCanvas
           onClose={() => setShowCanvas(false)}
           initialContent={canvasContent}
         />

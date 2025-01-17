@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Canvas from '@/components/Canvas';
+import ChatCanvas from '@/components/ChatCanvas';
 import { ConnectionStatus } from '@/features/chatbot/components/ConnectionStatus';
 import { ChatError } from '@/features/chatbot/components/ChatError';
 import { useChatError } from '@/features/chatbot/hooks/useChatError';
@@ -211,7 +211,7 @@ export default function TestChat() {
         </form>
 
         {showCanvas && (
-          <Canvas
+          <ChatCanvas
             initialContent={canvasContent}
             onClose={() => setShowCanvas(false)}
           />
