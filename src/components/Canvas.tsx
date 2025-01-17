@@ -265,7 +265,7 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
           <div className="flex-1 p-4 flex gap-4">
             <div className="w-64 border-r pr-4">
               <div className="mb-4">
-                <h4 className="font-medium mb-2">Triggers Natifs</h4>
+                <h4 className="font-medium mb-2 text-gray-900">Triggers Natifs</h4>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {TRIGGERS.map(trigger => (
                     <button
@@ -275,8 +275,8 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
                         selectedTrigger?.id === trigger.id ? 'bg-gray-100' : ''
                       }`}
                     >
-                      <div className="font-medium text-sm">{trigger.name}</div>
-                      <div className="text-xs text-gray-500">{trigger.description}</div>
+                      <div className="font-medium text-sm text-gray-900">{trigger.name}</div>
+                      <div className="text-xs text-gray-700">{trigger.description}</div>
                     </button>
                   ))}
                 </div>
@@ -285,7 +285,7 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
               <div className="border-t my-4"></div>
 
               <div className="mb-4">
-                <h4 className="font-medium mb-2">Templates</h4>
+                <h4 className="font-medium mb-2 text-gray-900">Templates</h4>
                 <div className="flex justify-between items-center mb-2">
                   <button
                     onClick={() => {
@@ -320,8 +320,8 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
                           selectedTool?.id === template.id ? 'bg-gray-100' : ''
                         }`}
                       >
-                        <div className="font-medium text-sm">{template.name}</div>
-                        <div className="text-xs text-gray-500">{template.description}</div>
+                        <div className="font-medium text-sm text-gray-900">{template.name}</div>
+                        <div className="text-xs text-gray-700">{template.description}</div>
                       </button>
                       {template.isCustom && (
                         <button
@@ -362,18 +362,18 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
                 <div className="w-80 flex flex-col gap-4">
                   {selectedTrigger ? (
                     <div className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-4">{selectedTrigger.name}</h4>
+                      <h4 className="font-medium mb-4 text-gray-900">{selectedTrigger.name}</h4>
                       <div className="space-y-4">
                         {selectedTrigger.params.map(param => (
                           <div key={param.id}>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-900 mb-1">
                               {param.name}
                             </label>
                             {param.type === 'select' ? (
                               <select
                                 value={triggerParams[param.id] || ''}
                                 onChange={(e) => handleParamChange(param.id, e.target.value)}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm text-gray-900"
                               >
                                 <option value="">Sélectionner...</option>
                                 {param.options?.map(option => (
@@ -387,17 +387,17 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
                                 type="number"
                                 value={triggerParams[param.id] || ''}
                                 onChange={(e) => handleParamChange(param.id, Number(e.target.value))}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm text-gray-900"
                               />
                             ) : (
                               <input
                                 type="text"
                                 value={triggerParams[param.id] || ''}
                                 onChange={(e) => handleParamChange(param.id, e.target.value)}
-                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm text-gray-900"
                               />
                             )}
-                            <p className="mt-1 text-xs text-gray-500">
+                            <p className="mt-1 text-xs text-gray-700">
                               {param.description}
                             </p>
                           </div>
@@ -405,7 +405,7 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
                         <div className="flex justify-end gap-2 mt-4">
                           <button
                             onClick={() => setSelectedTrigger(null)}
-                            className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                            className="px-3 py-1 text-sm text-gray-900 hover:text-gray-800"
                           >
                             Annuler
                           </button>
@@ -417,14 +417,14 @@ export default function Canvas({ onClose, initialContent = '' }: CanvasProps) {
                           </button>
                         </div>
                         {triggerResult && (
-                          <div className="mt-4 p-2 bg-gray-50 rounded text-sm">
+                          <div className="mt-4 p-2 bg-gray-50 rounded text-sm text-gray-900">
                             {triggerResult}
                           </div>
                         )}
                       </div>
                     </div>
                   ) : (
-                    <div className="border rounded-lg p-4 text-center text-gray-500">
+                    <div className="border rounded-lg p-4 text-center text-gray-700">
                       Sélectionnez un trigger pour commencer
                     </div>
                   )}
