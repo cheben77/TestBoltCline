@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 import { NextRequest, NextResponse } from 'next/server';
+=======
+import { NextResponse } from 'next/server';
+>>>>>>> 3803e13fa6ff683657b83b8940b93be439375514
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+<<<<<<< HEAD
 export async function GET(request: NextRequest) {
   try {
     // Sur Windows, utilise nvidia-smi pour vérifier CUDA
@@ -46,5 +51,14 @@ export async function GET(request: NextRequest) {
       error: 'CUDA n\'est pas disponible sur ce système',
       details: error instanceof Error ? error.message : 'Erreur inconnue'
     });
+=======
+export async function GET() {
+  try {
+    // Sur Windows, on utilise nvidia-smi pour vérifier la présence de CUDA
+    const { stdout } = await execAsync('nvidia-smi');
+    return NextResponse.json(stdout.includes('NVIDIA-SMI'));
+  } catch (error) {
+    return NextResponse.json(false);
+>>>>>>> 3803e13fa6ff683657b83b8940b93be439375514
   }
 }

@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+<<<<<<< HEAD
 import fetchMock from 'jest-fetch-mock';
 
 fetchMock.enableMocks();
@@ -35,3 +36,20 @@ afterAll(() => {
   console.error = originalConsoleError;
   console.warn = originalConsoleWarn;
 });
+=======
+
+// Étendre les types de Jest avec les matchers de @testing-library/jest-dom
+declare global {
+  namespace jest {
+    interface Matchers<R> {
+      toBeInTheDocument(): R;
+      toHaveClass(...classNames: string[]): R;
+      toHaveAttribute(attr: string, value?: string): R;
+      toBeVisible(): R;
+      toBeDisabled(): R;
+      toHaveTextContent(text: string | RegExp): R;
+      toHaveValue(value: string | string[] | number): R;
+    }
+  }
+}
+>>>>>>> 3803e13fa6ff683657b83b8940b93be439375514

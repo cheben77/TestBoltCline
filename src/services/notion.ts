@@ -6,9 +6,13 @@ import {
   Product
 } from '@/types/notion';
 
+<<<<<<< HEAD
 const notion = new Client({
   auth: process.env.NOTION_API_KEY,
 });
+=======
+const isDev = true; // Force l'utilisation des données mockées
+>>>>>>> 3803e13fa6ff683657b83b8940b93be439375514
 
 class NotionService {
   private readonly databaseIds = {

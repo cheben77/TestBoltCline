@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Canvas from '@/components/Canvas';
+import { ConnectionStatus } from '@/features/chatbot/components/ConnectionStatus';
+import { ChatError } from '@/features/chatbot/components/ChatError';
+import { useChatError } from '@/features/chatbot/hooks/useChatError';
 
 export default function TestChat() {
+  const { handleError, clearError, error } = useChatError();
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,10 +68,7 @@ export default function TestChat() {
         setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
       }
     } catch (error) {
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: 'Désolé, une erreur est survenue. Veuillez réessayer.' },
-      ]);
+      handleError(new Error('Une erreur est survenue lors de la communication avec le serveur'));
     } finally {
       setLoading(false);
     }
@@ -77,6 +78,16 @@ export default function TestChat() {
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold mb-4">Test du Chat StoaViva</h1>
+        <ConnectionStatus />
+        {error && (
+          <ChatError 
+            message={error.message} 
+            onRetry={() => {
+              clearError();
+              handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+            }} 
+          />
+        )}
         <p className="mb-4 text-gray-600">
           Ce chat utilise Notion pour accéder aux informations sur les produits et services,
           et Ollama pour générer des réponses contextuelles.
